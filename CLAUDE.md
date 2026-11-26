@@ -7,6 +7,8 @@
 - **Nirhast:** a hands-free kitchen assistant for home food businesses and tiffin services that take orders
   on WhatsApp. Focus city: Mumbai. Languages: mixed Hindi, Marathi and English.
 - Round 1 texts: `docs/hackathon/` (the Activity 2 build prompt is the product spec).
+- **Why things are the way they are: read `docs/DECISIONS.md`** (idea choice, product decisions, Round 2 scope).
+- Voice design rules with research behind them: `docs/hackathon/voice-design-rules.md`.
 
 ## Round 2 submission (one shot, due 30 Nov 2026, 11:59 pm IST)
 1. Public GitHub repo that **starts with one command (Docker) and without any secret keys**.
