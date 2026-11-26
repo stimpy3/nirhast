@@ -1,0 +1,15 @@
+Who benefits, and roughly how many:
+Home cooks in Mumbai, mostly women, who run tiffin services, home kitchens and small caterers and take orders on WhatsApp. Rough maths: Greater Mumbai has about 27.8 lakh households (Census 2011; the 2021 census was postponed). Home-food platforms show one home chef per 20 to 40 member households (Hey Homie 2022, FoodyBuddy 2018). Hey Homie splits its chefs into monthly, weekly and all-day tiers, so we assume only 1 in 10 runs a daily kitchen (on Mumbai's HomeChef Maagic, 85 chefs shared just 20–30 orders a day, 2021): one per 200 to 400 households, or roughly 7,000 to 14,000 daily home kitchens in Mumbai alone. Each kitchen feeds dozens of regular households, and many have a helper and a delivery person.
+
+What changes compared with today:
+Today the cook stops cooking, wipes her wet hands, unlocks her phone and scrolls WhatsApp for each order. In the lunch rush messages pile up, replies come late, and orders get missed or mixed up in chats and memory. With Nirhast, routine questions (menu, price, timing) are answered automatically, incomplete orders are completed with the customer, and only ready orders are read out to her. She confirms with one word, asks "Ab kya banaun?" to know what to cook next, and gets the day's prep count hands-free. Regulars get replies in seconds and can just reply "usual"; the delivery person marks orders delivered by voice. Fewer missed orders means fewer lost ₹120 thalis and regulars, and she cooks without stopping.
+
+How you'd know it worked:
+We would pilot 10 kitchens: one normal week, then a Nirhast week, measured the same way on matching weekdays and order volumes. Success means:
+- Missed or wrong orders halve (cook's daily tally plus complaints like "order nahi aaya"). Why half: restaurant orders repeated back had problems 7% of the time versus 20% when not (SMG data, reported by Mobile Cuisine); we aim lower because kitchens are noisier.
+- Phone pick-ups in one observed cooking hour halve. Why: menu, price and timing questions are answered automatically and orders are read aloud, so those no longer need her phone.
+- 80% of customers get a first reply within 2 minutes. Why: 2 minutes is the standard WhatsApp response target, and 80% the classic call-centre service bar (SleekFlow).
+- At least 7 of 10 cooks still use it daily in week two and ask to keep it after the pilot (a clear majority).
+
+The main risk:
+Speech recognition in a loud kitchen with mixed Hindi, Marathi and English. Wispr Flow's own docs say mixed-language speech is less reliable, and a 2026 Hindi farm-speech benchmark found even the best Hindi model got about 1 in 6 words wrong (arXiv 2602.03868). If Nirhast mishears orders, the cook stops trusting it. Read-backs, a clear yes, undo and buttons catch most mistakes, but real-kitchen accuracy must be proven. Also, linking a kitchen's own WhatsApp number needs Meta's approval, which can delay a pilot.

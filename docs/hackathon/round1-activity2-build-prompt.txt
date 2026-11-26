@@ -1,0 +1,41 @@
+Build a mobile React web prototype of Nirhast, a hands-free kitchen assistant for home food businesses taking WhatsApp orders.
+
+YOUR USERS AND THEIR LANGUAGES
+A cook-owner in a noisy kitchen; a helper and delivery person who also speak; customers texting on WhatsApp. Mixed Hindi, Marathi and English. Expect Marathi-accented Hindi, slow older speakers and rushed, clipped replies. Editable synonyms: kanda = pyaaz, poli = roti.
+
+THE VOICE FLOW, STEP BY STEP
+The mic stays open; no button or wake word. After a question, wait up to 6 seconds for her to start. One question at a time.
+1. Menu. Owner: "Aaj dal, roti. Thali 120." Nirhast: "Dal, roti, thali 120. Sahi?" Shows: menu card.
+2. Customer texts. Answer greetings, menu, price and timing from today's menu. If quantity, time or address is missing, or a message is unclear, ask one question; never guess. Offer regulars their usual order. Owner-only questions go to the owner queue; only complete orders reach the kitchen.
+3. New order. Nirhast: "Sharma ji, 2 thali, 1 baje. Haan?" Shows: order card. Cook: yes (customer gets "Order confirmed, 1 baje tak" once saved), no (polite decline), "baad mein" (re-ask in 5 minutes), or "2 nahi, 3" (updated card).
+4. Owner queue, when idle. Nirhast: "Gupta ji pooch rahe hain: paneer hai aaj?" Cook: "Nahi, kal milega." Nirhast: "Bhej doon?" Yes sends the shown draft.
+5. Next dish. Cook: "Ab kya banaun?" Nirhast: "Pehle Sharma ji, 1 baje. 6 thali ek saath." Shows: list ranked by earliest promised time, then smallest order; group same dishes.
+6. Quiet mode. Cook: "Abhi mat bolo." Nirhast: "10 minute?" Cook: yes or a number. Shows: countdown. Then: "3 naye order. Pehle Sharma ji?" Only late alerts interrupt: "Gupta ji ka order 10 minute mein due."
+7. Closing, 30 minutes before: "2 order baaki. Naye order band karoon?" Yes pauses new orders.
+8. Cook: "Aaj kitne thali?" Nirhast: "28 thali, 4 bina pyaaz." Delivery person: "Sharma delivered." Nirhast: "Noted." Shows: delivered.
+9. Cancel, refund, price change: owner repeats a random on-screen phrase. To a helper: "Yeh sirf owner kar sakti hain."
+
+WHAT THE PRODUCT SAYS OR SHOWS BACK
+Spoken lines: under 10 words, in the cook's language, with "ji" or "aap". A soft chime ends each question. Screen states: "Sun rahi hoon", words heard, "Saved". Each spoken line shows as a large card. Numbers: spoken as words, shown as digits ("teen, 3"). Delays over 1 second: "Ek second". Questions need a clear yes or no; updates get "Noted".
+
+NOISE, ACCENTS, MIXED LANGUAGES AND MISHEARD INPUT
+AI labels each reply yes, no or unclear. Examples: yes (haan, haan haan, ho, theek hai, chalega), no (nahi, nako). Only a clear yes accepts; noise never counts as yes.
+Error ladder (unclear reply): 1st "Phir boliye." 2nd "Haan ya nahi boliye." 3rd: leave it pending with large Haan/Nahi buttons.
+Nothing heard: repeat the question once, then the ladder.
+Read back quantities and times. Treat पांच, 5 and ५ as equal. Quantity over 3 times the customer's usual: "Das thali? Sach mein?"
+Replies end after 1 second of silence; 2 when expecting a number or correction.
+If the cook speaks, stop talking; "ruko" silences Nirhast. Ignore Nirhast's own voice.
+"Galat, wapas" within 15 seconds undoes the last action.
+If speech recognition or saving fails, say "Abhi sun nahi pa rahi", show buttons. Never confirm to a customer before saving; never fail silently.
+
+BUILD DETAILS
+Screens: simulated WhatsApp chat, kitchen screen (large text, mic state, quiet badge), owner screen (menu, orders, customers, question queue).
+Data (browser storage, this kitchen only): menu (dish, price), opening hours, customers (phone, name, address, usual order), orders (items, quantity, promised time, status: new, confirmed, delivered, cancelled), question queue, action log (time, action, speaker).
+Wispr Flow API for speech-to-text, hinting menu and customer names if supported; text-to-speech out. The AI only classifies, extracts and phrases replies from owner data; ranking, timers, retries and owner checks are fixed rules.
+Queue simultaneous orders; flag duplicates and ask; read post-confirmation edits as changes.
+Label DEMO: WhatsApp chat (one replaceable module), sync, optional voice profiles ("Speaking as" switch), the phrase check. Offline: "saved on phone, will sync".
+Never swap in other services silently; label substitutes DEMO and list them.
+Sample data: 6 dishes, 8 customers, 3 regulars; paneer off today's menu. Out of scope: payments, delivery routing, customer logins.
+
+DONE WHEN
+"Hi" gets the menu; "paneer hai aaj?" reaches the owner queue; no address triggers a question; "haan" confirms the order in chat; quiet mode holds all but late alerts; a helper cannot cancel. Run every check, show a pass/fail table, then score your build on voice flow, failure handling and prompt match. If any check fails or any score is under 75%, fix and retest, up to 3 rounds; then list what still fails. Never fake a pass.
