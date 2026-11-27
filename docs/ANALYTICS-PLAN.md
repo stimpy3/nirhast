@@ -34,6 +34,13 @@ Everything below needs history across days, which the browser alone can't keep.
 - **Analytics (detailed):** the reasoning: "Last 4 Tuesdays: 22, 26, 24, 27 → about 25. This week is 5% busier."
   A small chart of those days, the forecast per dish, and how close past forecasts were (forecast vs actual).
 
+### Forecast roadmap (for the pitch deck)
+| Stage | Implementation |
+|---|---|
+| **Prototype (built)** | Weighted average of the same weekday over the last 4 weeks (weights 4-3-2-1) + this week's trend (capped ±20%), shown as a range. Per-dish quantities and the busiest half hour come from the same method. |
+| **Next iteration** | A proper forecast for each half hour and each dish, with how sure it is. Compare forecast vs actual every day and learn from the gap. |
+| **Later (with weeks of real data)** | A model that predicts order counts using weekday, festivals and holidays, rain, salary days (start of month) and which regulars usually order that day. |
+
 ## 4. Slot overload: dropped for now (later)
 Decided 27 Nov: not in this build. When it comes back, **the cook decides** whether she can take an order; the app
 only shows how busy that half hour already is (no fixed limit set by the owner that blocks or redirects orders).
