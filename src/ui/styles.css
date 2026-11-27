@@ -624,3 +624,8 @@ button.forecast-card.k-plain b { font-size: 16px; line-height: 1.4; }
 .screen > .k-plain:first-child { border-top: 1px solid var(--line); padding-top: 14px; }
 .screen > .k-plain + .start-hero { border-top: 1px solid var(--line); padding-top: 18px; }
 .logo-mark { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+
+/* Setup: "Add item" is a real call to action (black = main action) */
+.mp-add { border: none; border-radius: 9999px; background: var(--ink); color: #fff; font-weight: 800; font-size: 16px; min-height: 52px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16); transition: transform 120ms ease; }
+.mp-add:hover { color: #fff; background: #1f1f1f; }
+.mp-add:active { transform: scale(0.97); }
