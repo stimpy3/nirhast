@@ -629,3 +629,7 @@ button.forecast-card.k-plain b { font-size: 16px; line-height: 1.4; }
 .mp-add { border: none; border-radius: 9999px; background: var(--ink); color: #fff; font-weight: 800; font-size: 16px; min-height: 52px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16); transition: transform 120ms ease; }
 .mp-add:hover { color: #fff; background: #1f1f1f; }
 .mp-add:active { transform: scale(0.97); }
+
+/* "What should I cook next?" arrow: white and a bit bigger */
+.cta-arrow { width: 48px; height: 48px; color: #fff !important; }
+.cta-arrow svg { color: #fff; stroke: #fff; stroke-width: 2.4; }

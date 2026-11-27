@@ -344,7 +344,7 @@ function NextCard({ state, t, onTap }) {
           </>
         ) : <b className="muted">{t('nothingConfirmedTap')}</b>}
       </div>
-      <span className="cta-arrow" aria-hidden="true"><ArrowRightIcon size={18} /></span>
+      <span className="cta-arrow" aria-hidden="true"><ArrowRightIcon size={24} /></span>
     </button>
   );
 }
