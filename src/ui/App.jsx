@@ -107,6 +107,7 @@ function KitchenScreen({ n, t }) {
           <p className="big-mic-label">{t('tapStart')}</p>
           <p className="muted small">{t('startShort')}</p>
         </section>
+        <TodayCard state={state} now={n.now} t={t} />
       </div>
     );
   }
@@ -372,6 +373,8 @@ function OwnerScreen({ n, t }) {
 
   return (
     <div className="screen">
+      <TodayCard state={state} now={n.now} t={t} />
+
       <section className="card">
         <h2 className="card-title" style={{ marginBottom: 4 }}>{t('kitchenHours')}</h2>
         <p className="card-sub">{t('hoursHint')}</p>

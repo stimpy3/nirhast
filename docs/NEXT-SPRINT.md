@@ -76,3 +76,27 @@ Still open: reply speed and phone pick-ups saved. Original note: to motivate the
 - Reply speed: time from order to the cook's confirmation (Round 1 target: 80% of first replies within 2 min).
 - Answered for you: menu, price, timing and "is X there today?" questions the app answered alone.
 - Phone pick-ups saved: one per voice action, shown as an estimate.
+
+## 7. Group orders to decide what to cook first (next sprint)
+- Today "Ab kya banaun?" ranks by time, then size, and groups the same dish.
+- Next: group by more parameters so the cook sees batches, e.g. same dish + same delivery slot, same notes
+  ("bina pyaaz" together), same delivery area (one trip), prep time per dish (start rice before roti).
+- Show batches on the Kitchen screen and read them aloud ("Pehle 8 thali, 1 baje, Dadar wale").
+
+## 8. Better at hearing the cook in a real kitchen (next sprint)
+- Better audio: noise suppression and echo cancellation tuned for pressure cookers, fans and TV;
+  measure the noise level before listening and ask the cook to come closer when it is too loud.
+- Learn from mistakes: when the cook corrects ("galat, wapas", or taps a button after a wrong guess), save what was
+  heard and what was meant; turn the common ones into new words for the word lists and hints for speech-to-text.
+- Track how often each step goes wrong (unclear, wrong label, undo) and show it to the team, so changes are measured.
+- Ties to section 4 (when the mic is on).
+
+## 9. Voice signatures: who is speaking (next sprint, not sure yet)
+- Today a "Speaking as" switch (demo only, `?demo=1`) stands in for knowing who is talking.
+- Idea: the owner records a short voice sample once; cancel, refund and price changes then need her voice
+  as well as the random phrase. Helpers and delivery staff can still confirm and mark delivered.
+- Open questions: accuracy in a noisy kitchen, privacy of voice data, and whether the phrase check is already enough.
+
+## 10. On-screen alert (from the differentiators list)
+- A banner for late-order and closing warnings that stays 10 seconds or until the cook taps ✕.
+  Today the warning is spoken and shown in the big line on the Kitchen screen only.
