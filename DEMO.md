@@ -32,6 +32,9 @@ Tip: if the mic struggles while recording, use the typing box. It runs exactly t
 
 ## What is simulated (say this if asked)
 
+- **Sample history:** the first start fills 5 weeks of made-up orders and feedback so the forecast and Analytics have
+  data. Set `SAMPLE_HISTORY=false` to start empty.
+
 - **WhatsApp is simulated** (the Chat tab). The real version uses the WhatsApp Business Cloud API, which needs
   Meta's approval to connect a kitchen's own number.
 - **"Speaking as"** stands in for recognising the speaker by voice.

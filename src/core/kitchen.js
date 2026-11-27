@@ -457,6 +457,13 @@ function markDelivered(k, text, now) {
   s.lastAction = { kind: 'delivered', orderId: match.id, at: now };
   k.say(k.t('noted'), { kind: 'saved', orderId: match.id });
   k.log(`Delivered ${match.id} (${customerOf(s, match).name})`);
+  const c = customerOf(s, match);
+  const day = new Date(now).toDateString();
+  if (c && c.ratingAskedOn !== day) { // once a day per customer
+    c.ratingAskedOn = day;
+    c.awaitingRating = true;
+    k.reply(c.id, k.tc(c.id, 'cAskRating'));
+  }
 }
 
 function requestOwnerAction(k, kind, text, now) {
@@ -543,6 +550,7 @@ export function tick(prev, now) {
   if (s.menuAskedOn !== day && s.menuSetOn !== day && !s.dialog && !s.quietUntil
       && now >= openAt.getTime() && now < openAt.getTime() + 2 * 60 * 60 * 1000) {
     s.menuAskedOn = day;
+    if (s.forecastLine) k.say(s.forecastLine, { kind: 'info' }); // "Today: about 22-28 thali..."
     k.say(k.t('menuMorning'), { kind: 'info' });
     k.log('Asked for today\'s menu');
   }

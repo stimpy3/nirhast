@@ -30,6 +30,7 @@ export const ChevronIcon = make(<path d="m18 15-6-6-6 6" />);
 export const SendIcon = make(<><path d="m3 3 3 9-3 9 19-9Z" /><path d="M6 12h16" /></>);
 export const CheckIcon = make(<path d="M20 6 9 17l-5-5" />);
 export const XIcon = make(<path d="M18 6 6 18M6 6l12 12" />);
+export const ChartIcon = make(<><path d="M3 3v18h18" /><path d="M7 16v-4" /><path d="M12 16V8" /><path d="M17 16v-6" /></>);
 export const PlusIcon = make(<path d="M12 5v14M5 12h14" />);
 export const CheckCircleIcon = make(<><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></>);
 export const DoubleCheckIcon = make(<><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></>);

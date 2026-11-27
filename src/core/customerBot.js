@@ -15,6 +15,10 @@ const PRICE_WORDS = ['price', 'rate', 'kitne ka', 'kitne ki', 'kitna', 'kimat', 
 const TIMING_WORDS = ['timing', 'kab tak', 'kitne baje tak', 'open', 'khula', 'kab band', 'band kab', 'time kya', 'कब तक'];
 const USUAL_WORDS = ['usual', 'roz wala', 'roj wala', 'same', 'hamesha wala', 'regular', 'रोज वाला', 'नेहमीचे', 'nehmiche'];
 const CHANGE_WORDS = ['kar do', 'karo', 'badal', 'badlo', 'change', 'instead', 'ki jagah', 'ke badle', 'chahiye ab', 'update', 'बदल', 'कर दो'];
+// Without the AI: simple words for feedback (the AI handles everything else when its key is set).
+const COMPLAINT_WORDS = ['thanda tha', 'thanda', 'late tha', 'late aaya', 'kam tha', 'kam thi', 'kharab', 'bekar', 'bakwas', 'cold', 'bad', 'worst', 'namak zyada', 'ठंडा', 'खराब', 'थंड'];
+const PRAISE_WORDS = ['tasty', 'mast', 'badhiya', 'accha tha', 'achha tha', 'maza aa gaya', 'delicious', 'superb', 'ghar jaisa', 'बढ़िया', 'स्वादिष्ट', 'छान'];
+
 const QUESTION_WORDS = ['hai kya', 'milega', 'milegi', 'hai aaj', 'kya', 'kab', 'kaise', 'kyun', 'kitna', 'kitne', 'available', 'है क्या', 'मिलेगा', 'क्या'];
 
 export const onToday = (m) => m.today !== false;
@@ -105,6 +109,51 @@ export function handleCustomerMessage(prev, customerId, rawText, now, sorted = n
   const draft = state.drafts[customerId] || null;
   // While waiting for an address, take the customer's own words as they are.
   const ai = draft?.awaiting === 'address' ? null : customerRuleText(sorted, state);
+  const addFeedback = (kind, extraFields = {}) => {
+    state.feedback = state.feedback || [];
+    state.nextFeedbackNo = state.nextFeedbackNo || 1;
+    state.feedback.push({ id: `f${state.nextFeedbackNo++}`, customerId, at: now, kind, text: rawText.trim(), rating: null,
+      sentiment: sorted?.sentiment || (kind === 'complaint' ? 'negative' : kind === 'praise' ? 'positive' : 'neutral'), topics: sorted?.topics || [], ...extraFields });
+  };
+  const toOwner = (kind) => {
+    const q = { id: `q${state.nextQuestionNo++}`, customerId, text: rawText.trim(), cookText: extra.cookText || null, kind, status: 'open', at: now };
+    state.ownerQueue.push(q);
+    effects.push({ type: 'ownerQuestion', questionId: q.id });
+  };
+
+  // A 1-5 rating after delivery ("Khana kaisa laga?")
+  if (customer.awaitingRating && !draft) {
+    const nums = extractNumbers(rawText);
+    if (nums.length === 1 && nums[0].value >= 1 && nums[0].value <= 5 && tokens(rawText).length <= 3) {
+      const rating = nums[0].value;
+      customer.awaitingRating = false;
+      addFeedback('rating', { rating, sentiment: rating >= 4 ? 'positive' : rating === 3 ? 'neutral' : 'negative' });
+      if (rating <= 2) { toOwner('complaint'); reply(say('cRatingSorry')); } else reply(say('cRatingThanks'));
+      return finish({ state, effects: [] });
+    }
+  }
+
+  // Feedback: praise and suggestions (AI label, or simple words without the AI). Complaints go to the owner below.
+  const noAiFeedback = !sorted && !draft ? (includesAny(rawText, COMPLAINT_WORDS) ? 'complaint' : includesAny(rawText, PRAISE_WORDS) ? 'praise' : null) : null;
+  if (!draft && (ai?.feedback === 'praise' || noAiFeedback === 'praise')) {
+    addFeedback('praise');
+    reply(say('cPraise'));
+    return finish({ state, effects: [] });
+  }
+  if (!draft && ai?.feedback === 'suggestion') {
+    addFeedback('suggestion');
+    toOwner('suggestion');
+    reply(say('cSuggestion'));
+    return finish({ state, effects: [] });
+  }
+  if (!draft && noAiFeedback === 'complaint') {
+    addFeedback('complaint');
+    toOwner('complaint');
+    reply(say('cComplaint'));
+    return finish({ state, effects: [] });
+  }
+  // Not about the kitchen: no automatic reply.
+  if (!draft && ai?.offTopic) return finish({ state, effects: [] });
 
   // "Is X there today?" — answered from the owner's menu rows, without the cook:
   // a yes or no for each dish asked about (on the menu or not), then the full menu.
@@ -128,10 +177,9 @@ export function handleCustomerMessage(prev, customerId, rawText, now, sorted = n
   }
 
   if (ai?.escalate && !draft) {
-    const q = { id: `q${state.nextQuestionNo++}`, customerId, text: rawText.trim(), cookText: extra.cookText || null, kind: ai.escalate, status: 'open', at: now };
-    state.ownerQueue.push(q);
+    if (ai.escalate === 'complaint') addFeedback('complaint');
+    toOwner(ai.escalate);
     reply(say(ai.escalate === 'complaint' ? 'cComplaint' : 'cQuestionSent'));
-    effects.push({ type: 'ownerQuestion', questionId: q.id });
     return finish({ state, effects: [] });
   }
   if (ai?.thanks && !draft) {

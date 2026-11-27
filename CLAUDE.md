@@ -42,12 +42,23 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
   minutes saved (estimate: 60 s per message, 20 s per voice action).
 - **Languages:** picker on the Start screen. English first, then Hindi and Marathi: screen text `src/ui/uiText.js`,
   spoken/sent lines `src/core/i18n.js`. Hindi/Marathi still need a native-speaker check.
-- **Tests:** `npm test` (67). CI builds and runs the Docker image on every push.
-- **UI (rebuilt 27 Nov from the team's Figma, style only):** phone-width column. **Only 2 screens for the cook (Sohan, 28 Nov: the cook is
+- **Database** (`server/db.js`): SQLite file on the server (`data/`, a Docker volume). Stores orders, feedback and
+  daily counts across days; the kitchen screen syncs today's data (`/api/sync`), history via `/api/history`.
+  First start fills 5 weeks of **sample history** (`src/core/history.js`, `SAMPLE_HISTORY=false` to skip). No server
+  (static live link) → the browser makes the same sample itself.
+- **Forecast** (`src/core/forecast.js`): same weekday, last 4 weeks, weights 4-3-2-1, trend ±20% cap, shown as a range;
+  short line on Kitchen and spoken at opening; reasoning on Analytics. Not ML (see DECISIONS).
+- **Analytics tab** (`src/ui/Analytics.jsx`, numbers in `src/core/analytics.js`): forecast reasoning, orders per half hour,
+  thalis per day, top dishes, satisfaction + complaint topics + recent messages, minutes saved. Chart colours
+  `--chart-1/2` validated with the dataviz script. "Regulars who stopped ordering" was dropped (Sohan).
+- **Feedback:** AI types praise / complaint / suggestion / off_topic + sentiment + topics; 1–5 rating asked after
+  delivery once a day per customer (1–2 → owner). Without AI: simple word lists.
+- **Tests:** `npm test` (78). CI builds and runs the Docker image on every push.
+- **UI (rebuilt 27 Nov from the team's Figma, style only):** phone-width column. **Only 2 screens for the cook (Sohan, 27 Nov: the cook is
   overwhelmed, keep it minimal):** Kitchen (start button + first-time language; under the mic: today's numbers and "saved today";
   orders read aloud, Yes/No/Later, what next, today's orders), Chat (simulated WhatsApp) and Owner (hours, owner
   questions, menu rows, language).
-  No "Demo" tags, no tech/service names on the cook's screens. The **Chat tab (simulated WhatsApp) is always shown** (Sohan, 28 Nov: it is critical).
+  No "Demo" tags, no tech/service names on the cook's screens. The **Chat tab (simulated WhatsApp) is always shown** (Sohan, 27 Nov: it is critical).
   Demo tools (typing box, AI labels, speaking-as, log, reset) appear only with `?demo=1`; how to demo: `DEMO.md`. Code: `src/ui/App.jsx`, `src/ui/styles.css`, `src/ui/icons.jsx` (SVG icons, no emoji).
   Content and features come from the spec, not the Figma.
 - **Brand:** lavender `#B6AAF2` + black `#000000` on off-white `#FAF9F6`, white rounded cards, pill buttons.
@@ -70,10 +81,21 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
 - **Never credit Claude in git:** commits under Sohan's identity, no `Co-Authored-By: Claude` or `Claude-Session` lines.
 - **Talking to Sohan:** simple language, explain technical words, short answers. Ask before major changes.
 
+## Schedule until submission (agreed 27 Nov)
+- **27 Nov, from 12 am:** server database (SQLite) + sample history, morning forecast, Analytics page with graphs,
+  feedback types in the AI prompt + 1–5 rating after delivery (`docs/ANALYTICS-PLAN.md`).
+  Also: review "What should I cook next?" with Sohan, then make it always visible on Kitchen
+  ("No confirmed orders yet" when empty).
+- **28 Nov:** real-mic test (Chrome, laptop + phone); real WhatsApp (Meta test number, up to 5 phones); **role-play as
+  the cook** through a full lunch rush to find latent needs (note every friction, then fix the small ones).
+- **29 Nov:** 3-minute demo video + pitch deck. **30 Nov:** buffer only, no new features.
+- **2–13 Dec (if shortlisted):** next-sprint voice features (`docs/NEXT-SPRINT.md`).
+
 ## Next steps
 1. Test with a real mic in Chrome (desktop and phone); tune the Hindi and Marathi word lists from what speech recognition actually returns.
 2. Turn on the live link (Pages) and check the mic works there (HTTPS).
 3. Wispr Flow API key: ask on the hackathon Discord; then test the Wispr path.
 4. Write the 3-minute demo script and pitch deck (reuse `docs/hackathon/`).
 5. Optional polish if time allows: voice menu setup, nicer mobile layout, an LLM classifier only when a key is set.
+7. Analytics plan (3 pages: Kitchen, Analytics, Owner; database, forecast, feedback; slot overload dropped for now): `docs/ANALYTICS-PLAN.md`.
 6. Next sprint plan: `docs/NEXT-SPRINT.md` (voice, AI types and languages are built; mic timing and database are open).

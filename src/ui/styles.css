@@ -3,6 +3,8 @@
    come from our spec, not from the Figma. Status colours: ochre = waiting, green = confirmed,
    red = no / stop / alerts. */
 :root {
+  --chart-1: #4B3F99; /* validated chart colours (dataviz check: CVD + contrast pass on white) */
+  --chart-2: #9384E0;
   --bg: #FAF9F6;
   --card: #FFFFFF;
   --ink: #000000;
@@ -349,3 +351,31 @@ button.card.next-box span:not(.tag) { font-size: 13px; color: var(--muted); }
 .row-del { min-height: 48px; border: none; border-radius: 12px; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
 .row-del:hover { background: #F3F3F3; color: var(--red); }
 .add-row { margin-top: 12px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; }
+
+/* Kitchen: short forecast card (tap -> Analytics) */
+button.card.forecast-card { width: 100%; text-align: left; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+button.card.forecast-card b { font-size: 16px; line-height: 1.4; }
+
+/* Analytics */
+.chart { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { font-size: 9px; fill: var(--muted); font-family: var(--font); }
+.chart rect { transition: opacity 120ms ease; }
+.chart rect:hover { opacity: 0.8; }
+.chart-title { margin-bottom: 8px; }
+.chart-sub { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.hbars { display: flex; flex-direction: column; gap: 8px; }
+.hbar { display: grid; grid-template-columns: 96px 1fr 32px; gap: 8px; align-items: center; font-size: 13px; }
+.hbar-label { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-track { height: 10px; background: var(--lav-soft); border-radius: 4px; overflow: hidden; }
+.hbar-track span { display: block; height: 100%; background: var(--chart-1); border-radius: 4px; }
+.hbar-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-weight: 600; }
+.quote-row { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-2); padding: 6px 0; border-top: 1px solid var(--line); }
+.fc-big { font-size: 15px; color: var(--ink-3); margin: 4px 0 12px; }
+.fc-big b { font-size: 32px; font-weight: 800; color: var(--ink); margin-right: 4px; }
+.fc-steps { margin: 10px 0 12px; padding-left: 20px; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+
+/* Mic switched off by the cook: the STOP button becomes LISTEN (black, not red: nothing is wrong) */
+.ruko.listen { background: var(--ink); color: #fff; }

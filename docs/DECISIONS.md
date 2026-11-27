@@ -86,9 +86,9 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
   word rules. Spoken lines are cached so Sarvam credits are not spent twice on the same sentence.
 - **Database:** not for Round 2 (see `docs/NEXT-SPRINT.md` section 5).
 
-## Translation decisions (28 Nov)
+## Translation decisions (27 Nov)
 - **Translator: Sarvam (`mayura:v1`).** Google and Azure need a billing account with a card; Sarvam uses the key we
-  already have (balance ₹958 on 28 Nov, about ₹20 per 10,000 characters).
+  already have (balance ₹958 on 27 Nov, about ₹20 per 10,000 characters).
 - **English before the AI, but the original is kept.** Live test: "2 nahi, 3 kar do" → "Don't, do 3"; "kal ka khana
   thanda tha" → "the food for the day was cold". So the AI sees both and trusts the original.
 - **Fixed replies are not translated live.** They are already written in all three languages.
@@ -96,7 +96,7 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
   language, always sent together with her own words and marked auto-translated ("नहीं, कल मिलेगा" came back as
   "No, I will meet you tomorrow").
 
-## Simpler screens (28 Nov)
+## Simpler screens (27 Nov)
 - **Kitchen, Chat and Owner.** Start moved into Kitchen (a big Start button; language only on first use).
   The simulated WhatsApp chat stays visible: it is how customer messages reach the kitchen in this prototype.
 - **No "Demo" tags or service names (Groq, Sarvam) on screen.** The cook doesn't care. Demo tools sit behind
@@ -107,7 +107,7 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
 - **No separate profile page.** Opening hours and language live on the Owner screen.
 - **Metrics card: later** (see `docs/NEXT-SPRINT.md` section 6).
 
-## Menu rows and "saved today" (28 Nov)
+## Menu rows and "saved today" (27 Nov)
 - **Owner edits the menu as rows:** item, price, available quantity (empty = no limit, 0 = not today), add and remove.
   These rows are the only source for every menu answer on WhatsApp.
 - **Menu questions never reach the cook.** "menu dikhaiye" gets the full menu. "paneer hai aaj?" gets a yes or no first
@@ -117,3 +117,14 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
   The LLM only tells which dishes were asked about, including ones not on the menu.
 - **"Saved today" on the Kitchen screen, under the mic,** with today's numbers (active, confirmed, waiting).
   Counts are real; minutes are an estimate (60 s per message answered, 20 s per action done by voice).
+
+## Database, forecast, Analytics, feedback (28 Nov, night)
+- **SQLite on the server** (built into Node, no new package; JSON file if unavailable). Sample history fills the first
+  start so the demo has 5 weeks of data; it is listed in DEMO.md and can be switched off.
+- **The forecast is not machine learning on purpose.** One kitchen has too little data for a trained model to beat a
+  weighted average of the same weekday, and the cook can see why the number is what it is. ML is a next-sprint idea once
+  real data from several weeks (and outside signals like holidays and rain) exists.
+- **Analytics is a 3rd page** (Kitchen, Analytics, Owner; Chat until WhatsApp is real). "Regulars who stopped ordering"
+  was removed at Sohan's request.
+- **Feedback stays in scope:** the AI prompt says feedback about food, delivery, price or service is never off-topic;
+  complaints are trusted at lower confidence (better to over-escalate); messages can't give the AI instructions.

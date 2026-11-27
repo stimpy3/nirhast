@@ -148,6 +148,14 @@ the start of each listening window.
 
 ---
 
+## Analytics and forecast
+
+The **Analytics** tab shows today's forecast with its reasoning (same weekday over the last 4 weeks, recent weeks
+counting more, this week's trend), orders per half hour, thalis per day, top dishes, customer satisfaction and
+complaint topics (from WhatsApp messages and a 1–5 rating asked after delivery), and minutes saved. Data is kept in a
+SQLite database on the server (`data/`, a Docker volume). The first start adds 5 weeks of sample history
+(`SAMPLE_HISTORY=false` to skip).
+
 ## What is real and what is demo
 
 The cook's screens carry no demo labels (team decision: the cook is busy, the screen stays simple).

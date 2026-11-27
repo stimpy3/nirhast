@@ -70,7 +70,7 @@ Written 27 Nov 2026 from team discussion.
 - Optional: set up the menu by voice; nicer phone layout.
 
 ## 6. "Saved by voice" metrics
-**Built 28 Nov** as "saved today" on the Kitchen screen (answered for you, done by voice, minutes saved estimate).
+**Built 27 Nov** as "saved today" on the Kitchen screen (answered for you, done by voice, minutes saved estimate).
 Still open: reply speed and phone pick-ups saved. Original note: to motivate the owner to keep using voice. Honest metrics from the app's own data:
 - Hands-free actions: orders confirmed by voice vs button (needs logging the input source per action).
 - Reply speed: time from order to the cook's confirmation (Round 1 target: 80% of first replies within 2 min).
@@ -100,3 +100,6 @@ Still open: reply speed and phone pick-ups saved. Original note: to motivate the
 ## 10. On-screen alert (from the differentiators list)
 - A banner for late-order and closing warnings that stays 10 seconds or until the cook taps ✕.
   Today the warning is spoken and shown in the big line on the Kitchen screen only.
+
+## 11. Analytics, forecast, customer feedback (slot overload dropped for now)
+Full plan: `docs/ANALYTICS-PLAN.md` (agreed 27 Nov, build later). Final product has 3 pages: Kitchen, Analytics, Owner.

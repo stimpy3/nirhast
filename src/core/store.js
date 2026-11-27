@@ -26,6 +26,8 @@ export function createInitialState(lang = 'en') {
     log: [],
     nextOrderNo: 1,
     nextQuestionNo: 1,
+    feedback: [], // praise, complaints, suggestions, 1-5 ratings (for Analytics)
+    nextFeedbackNo: 1,
   };
 }
 

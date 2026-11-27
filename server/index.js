@@ -5,6 +5,8 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sortMessage, transcribeGroq, speakSarvam, translateSarvam } from './ai.js';
+import { openDb, seedSample } from './db.js';
+import { dayKey } from '../src/core/history.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 try { process.loadEnvFile(path.resolve(__dirname, '..', '.env')); } catch { /* no .env file: fine */ }
@@ -106,6 +108,30 @@ app.post('/api/speak', async (req, res) => {
   }
 });
 
+// ---------- the kitchen's database (orders, feedback, daily counts across days) ----------
+const DATA_DIR = env('DATA_DIR') || path.resolve(__dirname, '..', 'data');
+const SAMPLE_HISTORY = env('SAMPLE_HISTORY').toLowerCase() !== 'false';
+const store = await openDb(DATA_DIR);
+if (SAMPLE_HISTORY && seedSample(store, Date.now())) console.log('Database:   filled 5 weeks of sample history (SAMPLE_HISTORY=false to skip)');
+
+app.get('/api/history', (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days || '35', 10)));
+  const since = dayKey(Date.now() - days * 24 * 3600 * 1000);
+  res.json({ ...store.history(since), sample: store.hasSample() });
+});
+
+// The kitchen screen sends today's orders, feedback and counts; they replace what is stored for today.
+app.post('/api/sync', (req, res) => {
+  const { day, orders, feedback, stats } = req.body || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return res.status(400).json({ error: 'bad_request' });
+  try {
+    store.replaceDay(day, { orders: Array.isArray(orders) ? orders : [], feedback: Array.isArray(feedback) ? feedback : [], stats: stats || null });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: 'db_failed', message: String(err?.message || err) });
+  }
+});
+
 const dist = path.resolve(__dirname, '..', 'dist');
 app.use(express.static(dist));
 app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
@@ -115,5 +141,6 @@ app.listen(PORT, () => {
   console.log(`Speech in:  ${stt === 'wispr' ? 'Wispr Flow API' : stt === 'groq' ? `Groq Whisper (${MODELS.stt})` : 'browser speech recognition (no key set)'}`);
   console.log(`Sorting:    ${GROQ_API_KEY ? `Groq (cook: ${MODELS.cook}, chat: ${MODELS.customer})` : 'word rules only (no GROQ_API_KEY)'}`);
   console.log(`Voice out:  ${SARVAM_API_KEY ? `Sarvam (${SARVAM.model}, ${SARVAM.speaker})` : 'browser voice (no SARVAM_API_KEY)'}`);
+  console.log(`Database:   ${store.kind} in ${DATA_DIR}${store.hasSample() ? ' (with sample history)' : ''}`);
   console.log(`Translate:  ${SARVAM_API_KEY ? `Sarvam mayura:v1${TRANSLATE_FIRST ? ' (also before sorting)' : ' (customer-cook text only)'}` : 'off (no SARVAM_API_KEY)'}`);
 });

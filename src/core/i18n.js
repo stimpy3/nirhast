@@ -7,6 +7,11 @@ export const LANGS = [
   { id: 'mr', label: 'Marathi', native: 'मराठी', speech: 'mr-IN' },
 ];
 export const LANG_IDS = LANGS.map((l) => l.id);
+export const WEEKDAYS = {
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  hi: ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'],
+  mr: ['रविवार', 'सोमवार', 'मंगळवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'],
+};
 export const safeLang = (lang) => (LANG_IDS.includes(lang) ? lang : 'en');
 
 // ---------- times ----------
@@ -100,6 +105,13 @@ To order, write for example: "2 thali 1 pm".`,
     cAddress: () => 'Please send your delivery address.',
     cDuplicate: (p) => `This order already exists (${p.items}, ${p.time}). Do you want a second order too? "yes" or "no".`,
     cReceived: () => 'Order received. We will tell you once the kitchen confirms.',
+    cPraise: () => 'Thank you! Glad you liked it.',
+    cSuggestion: () => 'Thank you for the idea. We have told the owner.',
+    cAskRating: () => 'How was the food today? Reply with a number from 1 to 5.',
+    cRatingThanks: () => 'Thank you for rating us!',
+    cRatingSorry: () => 'Sorry it was not good today. The owner will contact you.',
+    forecastLine: (p) => `Today: about ${p.low}–${p.high} thali (usual ${p.weekday}). Busiest ${p.slot}.`,
+    forecastNone: () => 'Not enough history yet for a forecast.',
     cYesItem: (p) => `Yes, ${p.item} is available today (₹${p.price}${p.left ? `, ${p.left}` : ''}).`,
     cNoItem: (p) => `Sorry, no ${p.item} today.`,
     cLeft: (p) => `${p.n} left`,
@@ -173,6 +185,13 @@ ${p.items}
     cAddress: () => 'डिलीवरी का पता भेजिए।',
     cDuplicate: (p) => `यह ऑर्डर पहले से है (${p.items}, ${p.time})। दूसरा ऑर्डर भी चाहिए? "हाँ" या "नहीं"।`,
     cReceived: () => 'ऑर्डर मिल गया। किचन कन्फ़र्म करते ही बताएँगे।',
+    cPraise: () => 'धन्यवाद! आपको अच्छा लगा, यह सुनकर खुशी हुई।',
+    cSuggestion: () => 'सुझाव के लिए धन्यवाद। मालकिन को बता दिया है।',
+    cAskRating: () => 'आज खाना कैसा लगा? 1 से 5 में नंबर लिखिए।',
+    cRatingThanks: () => 'रेटिंग के लिए धन्यवाद!',
+    cRatingSorry: () => 'माफ़ कीजिए, आज अच्छा नहीं लगा। मालकिन आपसे बात करेंगी।',
+    forecastLine: (p) => `आज: लगभग ${p.low}–${p.high} थाली (आम ${p.weekday} की तरह)। सबसे व्यस्त ${p.slot}।`,
+    forecastNone: () => 'अनुमान के लिए अभी पूरा इतिहास नहीं है।',
     cYesItem: (p) => `हाँ, आज ${p.item} है (₹${p.price}${p.left ? `, ${p.left}` : ''})।`,
     cNoItem: (p) => `माफ़ कीजिए, आज ${p.item} नहीं है।`,
     cLeft: (p) => `${p.n} बचे`,
@@ -246,6 +265,13 @@ ${p.items}
     cAddress: () => 'डिलिव्हरीचा पत्ता पाठवा.',
     cDuplicate: (p) => `हा ऑर्डर आधीच आहे (${p.items}, ${p.time}). दुसरा ऑर्डरही हवा का? "हो" किंवा "नाही".`,
     cReceived: () => 'ऑर्डर मिळाला. किचनने नक्की केल्यावर कळवू.',
+    cPraise: () => 'धन्यवाद! तुम्हाला आवडले याचा आनंद आहे.',
+    cSuggestion: () => 'सूचनेबद्दल धन्यवाद. मालकिणींना सांगितले आहे.',
+    cAskRating: () => 'आज जेवण कसे वाटले? 1 ते 5 मध्ये नंबर लिहा.',
+    cRatingThanks: () => 'रेटिंगबद्दल धन्यवाद!',
+    cRatingSorry: () => 'माफ करा, आज आवडले नाही. मालकीण तुमच्याशी बोलतील.',
+    forecastLine: (p) => `आज: सुमारे ${p.low}–${p.high} थाळ्या (नेहमीच्या ${p.weekday} सारख्या). सर्वात गर्दी ${p.slot}.`,
+    forecastNone: () => 'अंदाजासाठी अजून पुरेसा इतिहास नाही.',
     cYesItem: (p) => `हो, आज ${p.item} आहे (₹${p.price}${p.left ? `, ${p.left}` : ''}).`,
     cNoItem: (p) => `माफ करा, आज ${p.item} नाही.`,
     cLeft: (p) => `${p.n} शिल्लक`,

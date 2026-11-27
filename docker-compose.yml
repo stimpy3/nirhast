@@ -5,6 +5,8 @@ services:
     build: .
     ports:
       - "8080:8080"
+    volumes:
+      - nirhast-data:/app/data   # the kitchen's database survives restarts
     environment:
       - WISPR_API_KEY=${WISPR_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
@@ -15,3 +17,6 @@ services:
       - SARVAM_MODEL=${SARVAM_MODEL:-}
       - SARVAM_SPEAKER=${SARVAM_SPEAKER:-}
       - TRANSLATE_BEFORE_SORT=${TRANSLATE_BEFORE_SORT:-}
+      - SAMPLE_HISTORY=${SAMPLE_HISTORY:-}
+volumes:
+  nirhast-data:

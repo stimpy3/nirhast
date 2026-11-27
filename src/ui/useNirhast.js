@@ -1,8 +1,10 @@
 // The controller: connects the engine (rules) with speech in/out, AI sorting and timers.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createInitialState, customerSends, cookSays, noReply, pressButton, tick, setSpeakingAs, setLang as setLangRule, toggleToday, setHours, updateItem, addItem, removeItem, bump, TIMING } from '../core/store.js';
 import { cookRuleText, MIN_CONFIDENCE, ESCALATE_TYPES } from '../core/intents.js';
-import { LANGS, safeLang, line as i18nLine } from '../core/i18n.js';
+import { LANGS, safeLang, line as i18nLine, WEEKDAYS, clockLabel } from '../core/i18n.js';
+import { sampleHistory, dayKey } from '../core/history.js';
+import { forecast as makeForecast } from '../core/forecast.js';
 import { speak, stopSpeaking, ttsAvailable } from '../speech/tts.js';
 import { playSound, preloadSounds, soundCues } from '../speech/sounds.js';
 import { BrowserRecognizer, WisprRecognizer, browserSpeechAvailable } from '../speech/recognizers.js';
@@ -40,6 +42,8 @@ export function useNirhast() {
   const [notice, setNotice] = useState(null); // AI or voice fell back to the no-key path
   const [started, setStarted] = useState(false);
   const [now, setNow] = useState(Date.now());
+  // Past days from the server's database (or sample history made here when there is no server, e.g. the static live link)
+  const [history, setHistory] = useState({ orders: [], feedback: [], stats: [], sample: false, loaded: false });
 
   const recRef = useRef(null);
   const startedRef = useRef(false);
@@ -49,6 +53,7 @@ export function useNirhast() {
   const windowRef = useRef(null); // { deadline, expect }
   const lastInterimRef = useRef(0);
   const micBrokenRef = useRef(false); // mic failed: never show "listening" again until restart
+  const micOffRef = useRef(false); // the cook pressed STOP: mic stays off until she presses LISTEN
 
   const tr = useCallback((key, p) => makeT(stateRef.current.lang)(key, p), []);
   const clock = useCallback(() => Date.now(), []);
@@ -84,11 +89,12 @@ export function useNirhast() {
       drainQueue();
       return;
     }
-    if (expect) {
+    if (expect && !micOffRef.current) { // mic switched off by the cook: no listening window, buttons still work
       recRef.current?.setEndSilence(expect === 'number' ? TIMING.silenceNumberMs : TIMING.silenceMs);
       windowRef.current = { deadline: Date.now() + TIMING.listenWindowMs, expect };
     }
     if (micBrokenRef.current) setMic('error');
+    else if (micOffRef.current) setMic('paused');
     else if (recRef.current) { recRef.current.resume(); setMic('listening'); } else setMic(startedRef.current ? 'typed' : 'off');
   }, []);
 
@@ -238,6 +244,19 @@ export function useNirhast() {
   const removeDish = useCallback((id) => commit(removeItem(stateRef.current, id)), [commit]);
   const setHour = useCallback((which, hhmm) => commit(setHours(stateRef.current, which, hhmm)), [commit]);
   const ruko = useCallback(() => { queueRef.current = []; stopSpeaking(); }, []);
+  // STOP: Nirhast stops talking AND the mic goes off. LISTEN turns the mic back on.
+  const micStop = useCallback(() => {
+    queueRef.current = []; stopSpeaking();
+    micOffRef.current = true;
+    windowRef.current = null;
+    recRef.current?.pause();
+    if (!micBrokenRef.current) setMic('paused');
+  }, []);
+  const micListen = useCallback(() => {
+    micOffRef.current = false;
+    if (micBrokenRef.current || !recRef.current) return;
+    if (!speakingRef.current) { recRef.current.resume(); setMic('listening'); }
+  }, []);
 
   const reset = useCallback(() => {
     queueRef.current = []; stopSpeaking();
@@ -277,7 +296,8 @@ export function useNirhast() {
         setEngine('none');
         setError(tr('noSpeech'));
       }
-      if (!micBrokenRef.current) setMic(recRef.current ? 'listening' : 'typed');
+      if (micOffRef.current && recRef.current) { recRef.current.pause(); if (!micBrokenRef.current) setMic('paused'); } // STOP pressed: stay off (e.g. after a language switch)
+      else if (!micBrokenRef.current) setMic(recRef.current ? 'listening' : 'typed');
     } catch (err) {
       micBrokenRef.current = true;
       setMic('error');
@@ -304,6 +324,43 @@ export function useNirhast() {
       await startRecognizer();
     }
   }, [commit, startRecognizer]);
+
+  // ---------- history, sync, forecast ----------
+  useEffect(() => {
+    fetch('api/history?days=35').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((h) => {
+      if (h && Array.isArray(h.orders)) setHistory({ ...h, loaded: true });
+      else setHistory({ ...sampleHistory(stateRef.current.customers, Date.now()), sample: true, loaded: true, local: true });
+    });
+  }, []);
+
+  // Send today's orders, feedback and counts to the server's database (a moment after the last change).
+  useEffect(() => {
+    if (!history.loaded || history.local) return undefined;
+    const id = setTimeout(() => {
+      const s = stateRef.current;
+      fetch('api/sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ day: dayKey(Date.now()), orders: s.orders, feedback: s.feedback || [], stats: s.stats || null }),
+      }).catch(() => { /* offline: the next change tries again */ });
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [state.orders, state.feedback, state.stats, history.loaded, history.local]);
+
+  const today = dayKey(now);
+  const forecast = useMemo(
+    () => (history.loaded ? makeForecast(history.orders.filter((o) => o.day !== today), state.orders, Date.now()) : null),
+    [history, state.orders, today],
+  );
+
+  // The short forecast line is also spoken at opening (kitchen.js reads state.forecastLine).
+  useEffect(() => {
+    if (!forecast) return;
+    const lang = stateRef.current.lang;
+    const text = forecast.enough
+      ? i18nLine(lang, 'forecastLine', { low: forecast.low, high: forecast.high, weekday: WEEKDAYS[lang][forecast.weekday], slot: clockLabel(lang, forecast.busiest) })
+      : null;
+    if (stateRef.current.forecastLine !== text) commit({ ...stateRef.current, forecastLine: text });
+  }, [forecast, state.lang, commit]);
 
   // ---------- timers ----------
   useEffect(() => {
@@ -341,8 +398,8 @@ export function useNirhast() {
   useEffect(() => () => { recRef.current?.stop(); stopSpeaking(); }, []);
 
   return {
-    state, now, mic, engine, config, line, heard, interim, phrase, error, notice, started,
-    start, handleCookText, sendCustomer, press, setSpeaker, ruko, reset, setLang, toggleDish, setHour, editDish, addDish, removeDish,
+    state, now, mic, engine, config, line, heard, interim, phrase, error, notice, started, history, forecast,
+    start, handleCookText, sendCustomer, press, setSpeaker, ruko, micStop, micListen, micOff: mic === 'paused', reset, setLang, toggleDish, setHour, editDish, addDish, removeDish,
     listening: Boolean(windowRef.current),
   };
 }

@@ -7,7 +7,8 @@ export const MIN_CONFIDENCE = 0.6;
 export const ESCALATE_TYPES = ['question', 'complaint', 'special_request', 'payment'];
 
 const okNum = (n, max = 100) => Number.isInteger(n) && n > 0 && n <= max;
-const sure = (s) => s && typeof s.type === 'string' && (s.confidence ?? 1) >= MIN_CONFIDENCE;
+// A complaint is trusted at lower confidence: it is safer to show the owner one complaint too many than to miss one.
+const sure = (s) => s && typeof s.type === 'string' && (s.confidence ?? 1) >= (s.type === 'complaint' ? 0.4 : MIN_CONFIDENCE);
 
 function knownName(state, name) {
   if (!name) return null;
@@ -62,6 +63,9 @@ export function customerRuleText(sorted, state) {
   if (ESCALATE_TYPES.includes(s.type)) return { escalate: s.type };
   switch (s.type) {
     case 'thanks': return { thanks: true };
+    case 'praise': return { feedback: 'praise' };
+    case 'suggestion': return { feedback: 'suggestion' };
+    case 'off_topic': return { offTopic: true };
     case 'item_question': {
       const items = (Array.isArray(s.items) ? s.items : []).map((i) => (typeof i === 'string' ? i : i?.item)).filter((id) => menuItem(state, id));
       const other = [].concat(s.other || []).filter((x) => typeof x === 'string' && x.trim()).slice(0, 3);

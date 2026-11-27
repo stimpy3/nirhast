@@ -49,7 +49,7 @@ describe('Done-when checks from the build prompt', () => {
     expect(replies(r.effects).join(' ')).toMatch(/Today's menu/);
   });
 
-  // Changed 28 Nov (team decision): menu questions are answered from the owner's menu, not sent to the cook.
+  // Changed 27 Nov (team decision): menu questions are answered from the owner's menu, not sent to the cook.
   it('"paneer hai aaj?" gets "no" and the full menu, without disturbing the cook', () => {
     const r = customerSends(createInitialState(), 'c2', 'paneer hai aaj?', T0);
     expect(replies(r.effects)[0]).toMatch(/^Sorry, no paneer today\.\n\nToday's menu:\n• Thali ₹120/);

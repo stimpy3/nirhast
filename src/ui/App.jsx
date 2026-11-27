@@ -3,11 +3,12 @@ import { useNirhast } from './useNirhast.js';
 import { makeT } from './uiText.js';
 import { LANGS, itemsText, timeLabel } from '../core/i18n.js';
 import { savedToday } from '../core/metrics.js';
+import AnalyticsScreen from './Analytics.jsx';
 import { leftOf } from '../core/menu.js';
 import {
   MicIcon, MicOffIcon, StopIcon, ClockIcon, HomeIcon, ChatIcon, StoreIcon, SlidersIcon, UtensilsIcon,
   ArrowRightIcon, SendIcon, DoubleCheckIcon, EarIcon, HistoryIcon, QuestionIcon, MoreIcon, ArrowLeftIcon, CheckIcon,
-  XIcon, PlusIcon,
+  XIcon, PlusIcon, ChartIcon,
 } from './icons.jsx';
 
 // Demo tools (typing box, simulated customer chat, AI labels, "speaking as", log, reset) only show with ?demo=1.
@@ -16,7 +17,8 @@ const DEMO = typeof window !== 'undefined' && new URLSearchParams(window.locatio
 const COOK_PHRASES = ['haan', 'nahi', '2 nahi, 3', 'baad mein', 'ab kya banaun?', 'aaj kitne thali?', 'abhi mat bolo', 'galat, wapas', 'Sharma delivered'];
 const CUSTOMER_PHRASES = ['Hi', '2 thali 1 baje', 'dal hai aaj?', 'paneer hai aaj?', 'usual 1 baje', '3 thali kar do'];
 // Chat = the simulated customer WhatsApp. Always shown: it is how customers' messages reach the kitchen in this prototype.
-const TABS = [['kitchen', 'tabKitchen', HomeIcon], ['chat', 'tabChat', ChatIcon], ['owner', 'tabOwner', StoreIcon]];
+// Chat stands in for WhatsApp until the real connection exists; then the app has 3 pages.
+const TABS = [['kitchen', 'tabKitchen', HomeIcon], ['chat', 'tabChat', ChatIcon], ['analytics', 'tabAnalytics', ChartIcon], ['owner', 'tabOwner', StoreIcon]];
 const ACTIVE = ['awaiting', 'pending', 'confirmed'];
 
 function timeOf(ms) {
@@ -46,7 +48,8 @@ export default function App() {
       </header>
 
       <main>
-        {tab === 'kitchen' && <KitchenScreen n={n} t={t} />}
+        {tab === 'kitchen' && <KitchenScreen n={n} t={t} goAnalytics={() => setTab('analytics')} />}
+        {tab === 'analytics' && <AnalyticsScreen n={n} t={t} />}
         {tab === 'chat' && <ChatScreen n={n} t={t} />}
         {tab === 'owner' && <OwnerScreen n={n} t={t} />}
       </main>
@@ -88,7 +91,7 @@ const MIC = {
   off: ['micOff', 'subOff', 'off'],
 };
 
-function KitchenScreen({ n, t }) {
+function KitchenScreen({ n, t, goAnalytics }) {
   const { state } = n;
   const lang = state.lang;
   const [typed, setTyped] = useState('');
@@ -108,6 +111,8 @@ function KitchenScreen({ n, t }) {
           <p className="muted small">{t('startShort')}</p>
         </section>
         <TodayCard state={state} now={n.now} t={t} />
+        <ForecastCard n={n} t={t} onMore={goAnalytics} />
+        <NextCard state={state} t={t} onTap={n.start} />
       </div>
     );
   }
@@ -146,7 +151,9 @@ function KitchenScreen({ n, t }) {
             <div className="mic-state">{n.mic === 'listening' && !quiet && <span className="dot live" />}{micLabel}</div>
             <div className="mic-sub">{micSub}<span className={`wave ${n.mic === 'listening' && !quiet ? 'on' : ''}`}><i /><i /><i /><i /></span></div>
           </div>
-          <button className="ruko" onClick={n.ruko} aria-label={t('stopAria')}><StopIcon size={20} />{t('stopBtn')}</button>
+          {n.micOff
+            ? <button className="ruko listen" onClick={n.micListen} aria-label={t('listenAria')}><MicIcon size={20} />{t('listenBtn')}</button>
+            : <button className="ruko" onClick={n.micStop} aria-label={t('stopAria')}><StopIcon size={20} />{t('stopBtn')}</button>}
         </div>
         {(quiet || state.ordersPaused) && (
           <div className="chips" style={{ padding: '0 16px 14px' }}>
@@ -159,6 +166,7 @@ function KitchenScreen({ n, t }) {
       {n.error && <div className="banner-error" role="alert">{n.error}</div>}
 
       <TodayCard state={state} now={n.now} t={t} />
+      <ForecastCard n={n} t={t} onMore={goAnalytics} />
 
       <section className={`card hero ${kind === 'saved' ? 'saved' : ''} ${kind === 'alert' ? 'alert' : ''}`} aria-live="polite">
         {(status || dialogOrder?.promised) && (
@@ -210,16 +218,7 @@ function KitchenScreen({ n, t }) {
         </section>
       )}
 
-      {nextUp && (
-        <button className="card next-box" onClick={() => tap('ab kya banaun?')}>
-          <div>
-            <span className="tag lav"><UtensilsIcon size={14} />{t('whatNext')}</span>
-            <b>{t('firstUp', { name: customerOf(state, nextUp.customerId)?.name, time: timeLabel(lang, nextUp.promised) })}</b>
-            <span>{itemsText(state, nextUp.items, lang)}</span>
-          </div>
-          <ArrowRightIcon />
-        </button>
-      )}
+      <NextCard state={state} t={t} onTap={() => tap('ab kya banaun?')} />
 
       <section className="card">
         <div className="card-head">
@@ -253,6 +252,38 @@ function KitchenScreen({ n, t }) {
         </section>
       )}
     </div>
+  );
+}
+
+// "What should I cook next?" — always shown; before Start, tapping it starts the kitchen.
+function NextCard({ state, t, onTap }) {
+  const lang = state.lang;
+  const nextUp = state.orders.filter((o) => o.status === 'confirmed').sort((a, b) => minutesOf(a) - minutesOf(b))[0];
+  return (
+    <button className="card next-box" onClick={onTap}>
+      <div>
+        <span className="tag lav"><UtensilsIcon size={14} />{t('whatNext')}</span>
+        {nextUp ? (
+          <>
+            <b>{t('firstUp', { name: customerOf(state, nextUp.customerId)?.name, time: timeLabel(lang, nextUp.promised) })}</b>
+            <span>{itemsText(state, nextUp.items, lang)}</span>
+          </>
+        ) : <b className="muted">{t('nothingConfirmedTap')}</b>}
+      </div>
+      <ArrowRightIcon />
+    </button>
+  );
+}
+
+// Short forecast for today; the reasoning is on the Analytics page.
+function ForecastCard({ n, t, onMore }) {
+  if (!n.forecast) return null;
+  return (
+    <button className="card forecast-card" onClick={onMore}>
+      <span className="tag lav"><ChartIcon size={14} />{t('fcTitle')}</span>
+      <b>{n.state.forecastLine || t('forecastNoneUi')}</b>
+      {n.forecast.enough && <span className="muted small">{t('fcSoFar', { n: n.forecast.soFar })} · {t('fcDetails')}</span>}
+    </button>
   );
 }
 
@@ -364,7 +395,7 @@ function ChatScreen({ n, t }) {
 }
 
 // ---------------- Owner ----------------
-const Q_KIND = { question: 'kQuestion', complaint: 'kComplaint', special_request: 'kSpecial', payment: 'kPayment' };
+const Q_KIND = { question: 'kQuestion', complaint: 'kComplaint', special_request: 'kSpecial', payment: 'kPayment', suggestion: 'kSuggestion' };
 
 function OwnerScreen({ n, t }) {
   const { state } = n;
