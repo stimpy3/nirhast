@@ -51,7 +51,7 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
 
 ## Round 1 results and texts
 - All three activities passed. Each one had independent AI judges; scores were about 40–42/50 (prompt) and about 21/25 (impact).
-- **Activity 1 (idea):** the exact submitted text isn't saved here yet; ask Sohan to paste it into `docs/hackathon/`.
+- **Activity 1 (idea):** `docs/hackathon/round1-activity1-idea.txt` (problem, users, the voice-first product, why voice first). Reuse it in the deck.
 - **Activity 3** set pilot targets (missed orders halve, phone pick-ups halve, 80% of first replies within 2 min,
   7 of 10 cooks keep using it), with a Mumbai sizing of about 7,000–14,000 daily home kitchens.
   Reuse these in the deck.

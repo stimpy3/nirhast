@@ -1,0 +1,16 @@
+The problem: Home kitchens and tiffin services take orders on WhatsApp to avoid delivery-app commissions. But while the cook is kneading dough or frying masala, the phone sits on a shelf and messages wait. Orders get missed, promised times slip, customers asking "menu?" or "price?" go unanswered, and nobody knows who accepted or delivered which order.
+
+Who has it, where and how often: Home chefs, tiffin services and small caterers in Indian cities, usually one cook, a helper or two and a delivery person, working from a home kitchen. It hurts every day, worst during the lunch and dinner rush, exactly when orders arrive and hands are busiest. We start in Hindi, Marathi and English.
+
+The voice-first product: Nirhast connects to the kitchen's WhatsApp Business number.
+1. It answers greetings, menu, price and timing questions by itself.
+2. It remembers each customer's address and usual order, so a regular can just say "haan", and asks the customer for anything missing.
+3. It never guesses. A question it can't answer, like "paneer hai aaj?", is spoken to the cook at a calm moment; she answers by voice and Nirhast sends the reply.
+4. Only complete orders reach the kitchen, read aloud in short sentences: "Sharma ji, 2 thali, 1 baje. Haan?" She says "haan" and the customer gets a confirmation.
+5. It tells her what to cook next: earliest promised time first, then quick small orders, batching the same dish ("3 orders need thali, make 6 together").
+6. "Abhi mat bolo" pauses it. It suggests "10 minute?", then returns with one clear next step. Only late-order alerts break through, and near closing it warns before accepting more.
+7. Only the owner's voice, with a random-phrase check, can cancel orders or give refunds. Optional voice signatures, which we are exploring, would recognise who is speaking, owner or helper, and get better at each voice over time.
+
+It works on weak networks, and each kitchen's data stays private.
+
+Why voice comes first: The cook's hands are covered in dough and masala, so she cannot read, tap or type while cooking. A screen-based order app fails at the exact moment orders arrive. With Nirhast she only listens and answers, so she never touches the phone, and the business keeps running while she cooks.
