@@ -15,6 +15,7 @@
   "dependencies": {
     "@fontsource/baloo-2": "^5.3.0",
     "@fontsource/hind": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "express": "^4.22.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

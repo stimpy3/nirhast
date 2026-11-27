@@ -20,7 +20,7 @@ and small business) by team **SayLess**.
 docker compose up --build
 ```
 
-Open **http://localhost:8080** in **Chrome**, click **Start kitchen** and allow the microphone.
+Open **http://localhost:8080** in **Chrome**, tap the big mic button (**Tap to Start Kitchen**) and allow the microphone.
 
 Optional: speech through the Wispr Flow API instead of the browser's own speech recognition:
 
@@ -42,10 +42,9 @@ Tests: `npm test` (33 tests).
 
 ## Try the core flow (2 minutes)
 
-The screen has three parts: **Customer chat** (a simulated WhatsApp), **Kitchen** and **Owner**.
-On a phone they are tabs.
+The app has four tabs at the bottom: **Start**, **Kitchen Live**, **Chat** (a simulated WhatsApp chat) and **Owner**.
 
-1. In **Customer chat** (as Sharma ji), send `2 thali 1 baje`.
+1. In **Chat** (as Sharma ji), send `2 thali 1 baje`, then open **Kitchen Live**.
 2. Nirhast says: **"Sharma ji, 2 thali, 1 baje. Haan?"**, followed by a chime. It then listens for 6 seconds.
 3. Say **"2 nahi, 3"**. It reads back **"Sharma ji, 3 thali, 1 baje. Haan?"**
 4. Say **"haan"**. The order is saved and only then does the customer get *"Order confirmed: 3 thali, 1 baje tak."*

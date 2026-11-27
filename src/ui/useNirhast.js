@@ -43,6 +43,7 @@ export function useNirhast() {
   const pendingListenRef = useRef(null);
   const windowRef = useRef(null); // { deadline, expect }
   const lastInterimRef = useRef(0);
+  const micBrokenRef = useRef(false); // mic failed: never show "listening" again until restart
 
   const clock = useCallback(() => Date.now() + offsetRef.current, []);
 
@@ -71,7 +72,8 @@ export function useNirhast() {
       recRef.current?.setEndSilence(expect === 'number' ? TIMING.silenceNumberMs : TIMING.silenceMs);
       windowRef.current = { deadline: Date.now() + TIMING.listenWindowMs, expect };
     }
-    if (recRef.current) { recRef.current.resume(); setMic('listening'); } else setMic(startedRef.current ? 'typed' : 'off');
+    if (micBrokenRef.current) setMic('error');
+    else if (recRef.current) { recRef.current.resume(); setMic('listening'); } else setMic(startedRef.current ? 'typed' : 'off');
   }, []);
 
   const runEffects = useCallback((effects) => {
@@ -138,7 +140,13 @@ export function useNirhast() {
     startedRef.current = true;
     const onText = (t) => handleCookText(t);
     const onInterim = (t) => { lastInterimRef.current = Date.now(); setInterim(t); };
-    const onState = (st, msg) => { if (st === 'error') { setMic('error'); setError(msg || 'Mic error'); } };
+    micBrokenRef.current = false;
+    const onState = (st, msg) => {
+      if (st !== 'error') return;
+      micBrokenRef.current = true;
+      if (!speakingRef.current) setMic('error');
+      setError(`${msg || 'Mic error'}. Buttons ya typing use karein.`);
+    };
     try {
       if (config.wispr) {
         const rec = new WisprRecognizer({
@@ -157,8 +165,9 @@ export function useNirhast() {
       } else {
         setEngine({ name: 'none', note: 'No speech recognition here. Type below.' });
       }
-      setMic(recRef.current ? 'listening' : 'typed');
+      if (!micBrokenRef.current) setMic(recRef.current ? 'listening' : 'typed');
     } catch (err) {
+      micBrokenRef.current = true;
       setMic('error');
       setError(`Abhi sun nahi pa rahi: ${err?.message || err}. Buttons ya typing use karein.`);
       setEngine({ name: 'none', note: 'Mic not available. Type below.' });

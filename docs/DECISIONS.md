@@ -59,3 +59,13 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
 ## Also running in parallel (not this repo)
 - Perfios × Techfest IIT Bombay Agentic AI hackathon: the Round 1 abstract (no code), also due about 30 Nov.
   It is a separate product (voice distress detection in debt collection calls). Don't merge the two.
+
+## UI decisions (27 Nov, evening)
+- **First UI was dropped.** Sohan rebuilt the design direction in Figma; the code takes only its visual style
+  (layout, cards, pills, bottom tab bar), never its content or features. Extra Figma content (revenue, stock,
+  payment links, broadcast, "voice lock") is out of scope for Round 2.
+- **Colours: lavender + black, as in the Figma.** This replaces the earlier navy brand. Status colours keep their
+  meaning: ochre = waiting, green = confirmed only, red = no / stop / alerts only.
+- **Chat screen: WhatsApp-style layout** instead of the Figma's chat, so judges instantly read it as WhatsApp.
+  No WhatsApp logo or name as branding; labelled Demo.
+- **Logo:** maroon "N" with a spoon on lavender.

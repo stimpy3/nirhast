@@ -27,16 +27,24 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
   real key); otherwise browser SpeechRecognition (hi-IN), labelled Demo. Typing is always available, labelled Demo.
 - **Speech out:** browser speechSynthesis.
 - **Tests:** `npm test` (33). CI builds and runs the Docker image on every push.
-- **Brand:** navy `#0E1F38`, off-white `#F8F4EC`, ochre `#D48C2B` (waiting), green `#1E7F4F` (confirmed),
-  red `#D8232A` only for no, stop and alerts. Fonts: Baloo 2 (display), Hind (body). Logo: `public/logo.png`
-  (cropped from a screenshot; replace with the original file).
+- **UI (rebuilt 27 Nov from the team's Figma, style only):** phone-width column, 4 screens on a bottom tab bar:
+  Start, Kitchen Live, Chat, Owner. Code: `src/ui/App.jsx`, `src/ui/styles.css`, `src/ui/icons.jsx` (SVG icons, no emoji).
+  Content and features come from the spec, not the Figma.
+- **Brand:** lavender `#B6AAF2` + black `#000000` on off-white `#FAF9F6`, white rounded cards, pill buttons.
+  Status colours: ochre `#C98525` (waiting), green `#16A34A` (confirmed), red `#BA1A1A` only for no, stop and alerts.
+  Fonts: Plus Jakarta Sans, with Hind as fallback for Devanagari. Logo: maroon mark on lavender, `public/logo.png`
+  and `public/favicon.png` (made from a screenshot; replace with the original file for print or the deck).
+- **Chat screen** uses a familiar WhatsApp-style chat layout (green header, beige background, green bubbles),
+  as Sohan asked, but no WhatsApp logo or name as branding, and it is labelled "Demo: simulated WhatsApp chat".
 
 ## Rules for working on this repo
 - **Rules decide, speech only transcribes.** Keep decisions in `src/core/` as pure, tested functions.
 - **No silent fallbacks.** Anything simulated or substituted is labelled "Demo" in the UI and listed in the README.
 - **The app must start with no keys.** Never commit secrets.
 - **Never fake a test pass.** Run `npm test` and `npm run build` before committing.
-- Don't copy WhatsApp's own branding or assets; keep the chat a generic messaging look.
+- Don't use WhatsApp's logo, name as branding, or assets. A WhatsApp-style chat layout is fine (team decision, 27 Nov).
+- **UI changes: discuss with Sohan first**, agree, then build. Use the UI UX Pro skill for UI work.
+- **Never credit Claude in git:** commits under Sohan's identity, no `Co-Authored-By: Claude` or `Claude-Session` lines.
 - **Talking to Sohan:** simple language, explain technical words, short answers. Ask before major changes.
 
 ## Next steps
