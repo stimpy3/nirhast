@@ -116,7 +116,8 @@ export function speakable(line) {
 // Times like "1 baje", "1:30 baje", "1 pm", "raat 8 baje", "1 वाजता".
 export function parseTime(text) {
   const n = normalize(text);
-  const m = n.match(/(\d{1,2})(?:\s*:\s*(\d{2}))?\s*(baje|bje|baja|pm|am|vajta|वाजता|बजे|o clock|oclock)/);
+  // normalize() turns "1:30" into "1 30", so the minutes may follow a space
+  const m = n.match(/(\d{1,2})(?:\s*[:\s]\s*(\d{2}))?\s*(baje|bje|baja|pm|am|vajta|वाजता|बजे|o clock|oclock)/);
   let hour; let minute = 0; let marker = '';
   if (m) {
     hour = parseInt(m[1], 10); minute = m[2] ? parseInt(m[2], 10) : 0; marker = m[3];

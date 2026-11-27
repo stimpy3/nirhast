@@ -1,20 +1,25 @@
-// The controller: connects the engine (rules) with speech in/out and timers.
+// The controller: connects the engine (rules) with speech in/out, AI sorting and timers.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createInitialState, customerSends, cookSays, noReply, pressButton, tick, setSpeakingAs, TIMING } from '../core/store.js';
-import { speak, stopSpeaking, chime, ttsAvailable } from '../speech/tts.js';
+import { createInitialState, customerSends, cookSays, noReply, pressButton, tick, setSpeakingAs, setLang as setLangRule, toggleToday, setHours, updateItem, addItem, removeItem, bump, TIMING } from '../core/store.js';
+import { cookRuleText, MIN_CONFIDENCE, ESCALATE_TYPES } from '../core/intents.js';
+import { LANGS, safeLang, line as i18nLine } from '../core/i18n.js';
+import { speak, stopSpeaking, ttsAvailable } from '../speech/tts.js';
+import { playSound, preloadSounds, soundCues } from '../speech/sounds.js';
 import { BrowserRecognizer, WisprRecognizer, browserSpeechAvailable } from '../speech/recognizers.js';
+import { makeT } from './uiText.js';
 
-const STORAGE_KEY = 'nirhast-demo-v1';
+const STORAGE_KEY = 'nirhast-demo-v2';
+const AI_TIMEOUT_MS = 5000;
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s?.version === 1) return { ...s, dialog: null, quietUntil: null };
+      if (s?.version === 1) return { ...s, lang: safeLang(s.lang), dialog: null, quietUntil: null };
     }
   } catch { /* storage unavailable: start fresh */ }
-  return createInitialState();
+  return { ...createInitialState('en'), langChosen: false };
 }
 function saveState(s) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
@@ -23,16 +28,16 @@ function saveState(s) {
 export function useNirhast() {
   const [state, setState] = useState(loadState);
   const stateRef = useRef(state);
-  const [offsetMs, setOffsetMs] = useState(0); // DEMO clock skip
-  const offsetRef = useRef(0);
-  const [mic, setMic] = useState('off'); // off | listening | speaking | paused | error
-  const [engine, setEngine] = useState({ name: 'none', note: 'Kitchen not started' });
-  const [config, setConfig] = useState({ wispr: false, checked: false });
+  const [mic, setMic] = useState('off'); // off | listening | speaking | paused | typed | error
+  const [engine, setEngine] = useState('none'); // wispr | groq | browser | none
+  const [config, setConfig] = useState({ wispr: false, groq: false, sarvam: false, translateFirst: false, stt: null, checked: false });
+  const configRef = useRef(config);
   const [line, setLine] = useState(null); // last spoken line { text, kind, orderId }
-  const [heard, setHeard] = useState(null); // { text, status: 'heard'|'saved'|'ignored' }
+  const [heard, setHeard] = useState(null); // { text, status: 'heard'|'saved'|'ignored', label }
   const [interim, setInterim] = useState('');
   const [phrase, setPhrase] = useState(null);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null); // AI or voice fell back to the no-key path
   const [started, setStarted] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -45,7 +50,8 @@ export function useNirhast() {
   const lastInterimRef = useRef(0);
   const micBrokenRef = useRef(false); // mic failed: never show "listening" again until restart
 
-  const clock = useCallback(() => Date.now() + offsetRef.current, []);
+  const tr = useCallback((key, p) => makeT(stateRef.current.lang)(key, p), []);
+  const clock = useCallback(() => Date.now(), []);
 
   const commit = useCallback((next) => {
     stateRef.current = next;
@@ -60,15 +66,25 @@ export function useNirhast() {
     recRef.current?.pause(); // half-duplex: never listen to our own voice
     while (queueRef.current.length) {
       const item = queueRef.current.shift();
+      if (item.sound) { await playSound(item.sound); continue; } // cue: mic stays paused while it plays
       setLine(item);
       setMic('speaking');
-      await speak(item.text);
+      await speak(item.text, {
+        lang: stateRef.current.lang,
+        sarvam: configRef.current.sarvam,
+        onFallback: (m) => setNotice(`Sarvam: ${m}. Browser voice used (Demo).`),
+      });
     }
-    speakingRef.current = false;
     const expect = pendingListenRef.current;
     pendingListenRef.current = null;
+    if (expect) await playSound('micOn'); // before the mic resumes, so it doesn't hear the cue
+    speakingRef.current = false;
+    if (queueRef.current.length) { // something new came in during the cue: say it, then open the window
+      if (expect && !pendingListenRef.current) pendingListenRef.current = expect;
+      drainQueue();
+      return;
+    }
     if (expect) {
-      chime();
       recRef.current?.setEndSilence(expect === 'number' ? TIMING.silenceNumberMs : TIMING.silenceMs);
       windowRef.current = { deadline: Date.now() + TIMING.listenWindowMs, expect };
     }
@@ -76,13 +92,14 @@ export function useNirhast() {
     else if (recRef.current) { recRef.current.resume(); setMic('listening'); } else setMic(startedRef.current ? 'typed' : 'off');
   }, []);
 
-  const runEffects = useCallback((effects) => {
+  const runEffects = useCallback((effects, cues = []) => {
+    for (const c of cues) queueRef.current.push({ sound: c });
     for (const e of effects) {
       if (e.type === 'say') queueRef.current.push({ text: e.text, kind: e.kind, orderId: e.orderId });
       else if (e.type === 'listen') pendingListenRef.current = e.expect;
       else if (e.type === 'stopSpeaking') { queueRef.current = []; stopSpeaking(); }
       else if (e.type === 'showPhrase') setPhrase(e.phrase);
-      else if (e.type === 'ignored') setHeard({ text: e.text, status: 'ignored' });
+      else if (e.type === 'ignored') setHeard((h) => ({ ...(h || {}), text: e.text, status: 'ignored' }));
       if (e.type === 'say' && e.kind === 'saved') setHeard((h) => (h ? { ...h, status: 'saved' } : h));
     }
     if (queueRef.current.length) drainQueue();
@@ -90,54 +107,147 @@ export function useNirhast() {
   }, [drainQueue]);
 
   const apply = useCallback((fn) => {
-    const r = fn(stateRef.current);
+    const prev = stateRef.current;
+    const r = fn(prev);
     commit(r.state);
-    runEffects(r.effects);
+    runEffects(r.effects, soundCues(prev, r.state, Date.now()));
     return r;
   }, [commit, runEffects]);
 
+  // ---------- translation (Sarvam, only when the server has its key) ----------
+  // Returns the translated text, or null (no key, same language, or failure: then the original words are used).
+  const translate = useCallback(async (text, to) => {
+    if (!configRef.current.sarvam || !text?.trim()) return null;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+    try {
+      const r = await fetch('api/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+        body: JSON.stringify({ text, to }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(r.status === 429 ? 'rate limit' : body?.message || `error ${r.status}`);
+      const out = (body.text || '').trim();
+      return out && out !== text.trim() ? out : null;
+    } catch (err) {
+      setNotice(tr('translateFallback', { msg: err?.name === 'AbortError' ? 'timeout' : String(err?.message || err) }));
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }, [tr]);
+
+  // ---------- AI sorting (only when the server has a Groq key) ----------
+  const sortWithAI = useCallback(async (role, text) => {
+    if (!configRef.current.groq) return null;
+    const s = stateRef.current;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+    try {
+      // English first: the AI sees the original and an English translation (the original wins).
+      const english = configRef.current.translateFirst ? await translate(text, 'en') : null;
+      const r = await fetch('api/sort', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+        body: JSON.stringify({
+          role, text, english,
+          context: {
+            question: role === 'cook' ? s.dialog?.prompt || null : null,
+            menu: s.menu.map((m) => ({ id: m.id, names: [m.name, ...Object.values(m.names || {})] })),
+            customers: s.customers.map((c) => c.name),
+          },
+        }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(r.status === 429 ? 'rate limit' : body?.message || `error ${r.status}`);
+      setNotice(null);
+      return english ? { ...body, english } : body;
+    } catch (err) {
+      setNotice(tr('aiFallback', { msg: err?.name === 'AbortError' ? 'timeout' : String(err?.message || err) }));
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }, [tr, translate]);
+
   // ---------- inputs ----------
-  const handleCookText = useCallback((text, source = 'voice') => {
+  // source: 'voice' (mic), 'typed' (free typing, sorted by AI), 'button' (fixed words, no AI needed)
+  const handleCookText = useCallback(async (text, source = 'voice') => {
     if (!text || !text.trim()) return;
     if (speakingRef.current) {
       if (source === 'voice') return; // half-duplex guard: ignore what the mic hears while we speak
       queueRef.current = []; stopSpeaking(); // typed input interrupts
     }
+    if (windowRef.current) playSound('micOff'); // the answer was heard: listening window closes
     windowRef.current = null;
     setInterim('');
     setHeard({ text, status: 'heard' });
-    if (!/phrase/.test(stateRef.current.dialog?.kind || '')) setPhrase(null);
-    apply((s) => cookSays(s, text, clock()));
-  }, [apply, clock]);
+    const d = stateRef.current.dialog;
+    if (d?.kind !== 'phrase') setPhrase(null);
+    // The owner phrase check and free answers use the exact words, never an AI label.
+    const rawOnly = source === 'button' || d?.kind === 'phrase' || (d?.kind === 'ownerQ' && d.stage === 'answer');
+    let ruleText = null;
+    const extra = {};
+    if (d?.kind === 'ownerQ' && d.stage === 'answer') {
+      const s = stateRef.current;
+      const q = s.ownerQueue.find((x) => x.id === d.questionId);
+      const custLang = s.customers.find((c) => c.id === q?.customerId)?.lang || s.lang;
+      if (custLang !== s.lang) {
+        // Short replies can be mistranslated, so the customer always gets the cook's own words too.
+        const out = await translate(text, custLang);
+        if (out) extra.answerForCustomer = i18nLine(custLang, 'cTranslated', { orig: text, tr: out });
+      }
+    }
+    if (!rawOnly) {
+      const sorted = await sortWithAI('cook', text);
+      if (sorted) {
+        setHeard((h) => (h && h.text === text ? { ...h, label: sorted } : h));
+        if (sorted.type === 'background' && (sorted.confidence ?? 1) >= MIN_CONFIDENCE) {
+          setHeard((h) => (h ? { ...h, status: 'ignored' } : h));
+          return;
+        }
+        ruleText = cookRuleText(sorted, stateRef.current);
+      }
+    }
+    const r = apply((s) => cookSays(s, text, clock(), ruleText, extra));
+    // "Done by voice": something was saved without touching the phone.
+    if (source !== 'button' && r.effects.some((e) => e.type === 'say' && e.kind === 'saved')) commit(bump(stateRef.current, 'handsFree', clock()));
+  }, [apply, clock, sortWithAI, translate]);
 
-  const sendCustomer = useCallback((customerId, text) => {
+  const sendCustomer = useCallback(async (customerId, text, source = 'typed') => {
     if (!text.trim()) return;
-    apply((s) => customerSends(s, customerId, text.trim(), clock()));
+    const msg = text.trim();
+    const sorted = source === 'chip' ? null : await sortWithAI('customer', msg);
+    // If it may go to the owner, read it to the cook in the app language. Skipped when it is already in that language.
+    const s = stateRef.current;
+    const mayEscalate = sorted ? ESCALATE_TYPES.includes(sorted.type) || sorted.type === 'unclear' : msg.includes('?');
+    const sameLang = sorted?.lang ? sorted.lang === s.lang : false;
+    const cookText = mayEscalate && !sameLang ? await translate(msg, s.lang) : null;
+    apply((st) => customerSends(st, customerId, msg, clock(), sorted, { cookText }));
+  }, [apply, clock, sortWithAI, translate]);
+
+  const press = useCallback((orderId, answer) => {
+    if (windowRef.current) { playSound('micOff'); windowRef.current = null; } // a tap answers too
+    const r = apply((s) => pressButton(s, orderId, answer, clock()));
+    commit(bump(stateRef.current, 'buttons', clock()));
+    return r;
   }, [apply, clock]);
-
-  const press = useCallback((orderId, answer) => apply((s) => pressButton(s, orderId, answer, clock())), [apply, clock]);
-
   const setSpeaker = useCallback((who) => commit(setSpeakingAs(stateRef.current, who)), [commit]);
-
+  const toggleDish = useCallback((itemId) => commit(toggleToday(stateRef.current, itemId)), [commit]);
+  const editDish = useCallback((id, patch) => commit(updateItem(stateRef.current, id, patch)), [commit]);
+  const addDish = useCallback(() => commit(addItem(stateRef.current)), [commit]);
+  const removeDish = useCallback((id) => commit(removeItem(stateRef.current, id)), [commit]);
+  const setHour = useCallback((which, hhmm) => commit(setHours(stateRef.current, which, hhmm)), [commit]);
   const ruko = useCallback(() => { queueRef.current = []; stopSpeaking(); }, []);
-
-  const skipMinutes = useCallback((m) => {
-    offsetRef.current += m * 60 * 1000;
-    setOffsetMs(offsetRef.current);
-  }, []);
 
   const reset = useCallback(() => {
     queueRef.current = []; stopSpeaking();
     windowRef.current = null; setLine(null); setHeard(null); setPhrase(null);
-    offsetRef.current = 0; setOffsetMs(0);
-    commit(createInitialState());
+    commit({ ...createInitialState(stateRef.current.lang), langChosen: true });
   }, [commit]);
 
-  // ---------- start the kitchen (needs a tap so the browser allows mic + audio) ----------
-  const start = useCallback(async () => {
-    setError(null);
-    setStarted(true);
-    startedRef.current = true;
+  // ---------- speech in ----------
+  const startRecognizer = useCallback(async () => {
+    const lang = stateRef.current.lang;
     const onText = (t) => handleCookText(t);
     const onInterim = (t) => { lastInterimRef.current = Date.now(); setInterim(t); };
     micBrokenRef.current = false;
@@ -145,41 +255,64 @@ export function useNirhast() {
       if (st !== 'error') return;
       micBrokenRef.current = true;
       if (!speakingRef.current) setMic('error');
-      setError(`${msg || 'Mic error'}. Buttons ya typing use karein.`);
+      setError(tr('errMic', { msg: msg || 'Mic error' }));
     };
     try {
-      if (config.wispr) {
+      if (configRef.current.stt) {
         const rec = new WisprRecognizer({
           onText, onState,
-          onError: (m) => { setError(`Abhi sun nahi pa rahi (${m}). Buttons ya typing use karein.`); },
+          onError: (m) => setError(tr('errHear', { msg: m })),
           dictionary: () => [...stateRef.current.menu.map((m) => m.name), ...stateRef.current.customers.map((c) => c.name)],
+          language: [lang, ...['hi', 'mr', 'en'].filter((l) => l !== lang)],
         });
         await rec.start();
         recRef.current = rec;
-        setEngine({ name: 'wispr', note: 'Wispr Flow API' });
+        setEngine(configRef.current.stt);
       } else if (browserSpeechAvailable()) {
-        const rec = new BrowserRecognizer({ onText, onInterim, onState, lang: 'hi-IN' });
+        const rec = new BrowserRecognizer({ onText, onInterim, onState, lang: LANGS.find((l) => l.id === lang)?.speech || 'hi-IN' });
         rec.start();
         recRef.current = rec;
-        setEngine({ name: 'browser', note: 'Browser speech (demo: no Wispr key set)' });
+        setEngine('browser');
       } else {
-        setEngine({ name: 'none', note: 'No speech recognition here. Type below.' });
+        setEngine('none');
+        setError(tr('noSpeech'));
       }
       if (!micBrokenRef.current) setMic(recRef.current ? 'listening' : 'typed');
     } catch (err) {
       micBrokenRef.current = true;
       setMic('error');
-      setError(`Abhi sun nahi pa rahi: ${err?.message || err}. Buttons ya typing use karein.`);
-      setEngine({ name: 'none', note: 'Mic not available. Type below.' });
+      setError(tr('errHear', { msg: err?.message || err }));
+      setEngine('none');
     }
-    if (!ttsAvailable()) setError((e) => e || 'This browser cannot speak. Lines are shown on screen.');
+  }, [handleCookText, tr]);
+
+  // ---------- start the kitchen (needs a tap so the browser allows mic + audio) ----------
+  const start = useCallback(async () => {
+    setError(null);
+    setStarted(true);
+    startedRef.current = true;
+    preloadSounds();
+    await startRecognizer();
+    if (!ttsAvailable() && !configRef.current.sarvam) setError((e) => e || tr('errNoTts'));
     apply((s) => tick(s, clock()));
-  }, [config.wispr, handleCookText, apply, clock]);
+  }, [startRecognizer, apply, clock, tr]);
+
+  const setLang = useCallback(async (lang) => {
+    commit({ ...setLangRule(stateRef.current, safeLang(lang)), langChosen: true });
+    if (startedRef.current && recRef.current) { // restart listening in the new language
+      recRef.current.stop(); recRef.current = null;
+      await startRecognizer();
+    }
+  }, [commit, startRecognizer]);
 
   // ---------- timers ----------
   useEffect(() => {
-    fetch('api/config').then((r) => (r.ok ? r.json() : { wispr: false })).catch(() => ({ wispr: false }))
-      .then((c) => setConfig({ wispr: Boolean(c.wispr), checked: true }));
+    fetch('api/config').then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
+      .then((c) => {
+        const next = { wispr: Boolean(c.wispr), groq: Boolean(c.groq), sarvam: Boolean(c.sarvam), translateFirst: Boolean(c.translateFirst), stt: c.stt || null, checked: true };
+        configRef.current = next;
+        setConfig(next);
+      });
   }, []);
 
   useEffect(() => {
@@ -190,11 +323,16 @@ export function useNirhast() {
       const w = windowRef.current;
       if (w && !speakingRef.current && Date.now() > w.deadline && Date.now() - lastInterimRef.current > 1500) {
         windowRef.current = null;
+        playSound('micOff'); // time to answer ran out
         if (stateRef.current.dialog) apply((s) => noReply(s, clock()));
       }
       if (startedRef.current && !speakingRef.current) {
         const r = tick(stateRef.current, t);
-        if (r.effects.length || JSON.stringify(r.state) !== JSON.stringify(stateRef.current)) { commit(r.state); runEffects(r.effects); }
+        if (r.effects.length || JSON.stringify(r.state) !== JSON.stringify(stateRef.current)) {
+          const prev = stateRef.current;
+          commit(r.state);
+          runEffects(r.effects, soundCues(prev, r.state, t));
+        }
       }
     }, 500);
     return () => clearInterval(id);
@@ -203,8 +341,8 @@ export function useNirhast() {
   useEffect(() => () => { recRef.current?.stop(); stopSpeaking(); }, []);
 
   return {
-    state, now, offsetMs, mic, engine, config, line, heard, interim, phrase, error, started,
-    start, handleCookText, sendCustomer, press, setSpeaker, ruko, skipMinutes, reset,
+    state, now, mic, engine, config, line, heard, interim, phrase, error, notice, started,
+    start, handleCookText, sendCustomer, press, setSpeaker, ruko, reset, setLang, toggleDish, setHour, editDish, addDish, removeDish,
     listening: Boolean(windowRef.current),
   };
 }

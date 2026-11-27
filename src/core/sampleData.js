@@ -1,12 +1,12 @@
 // Sample data for the demo kitchen. Paneer is deliberately NOT on today's menu.
 
 export const SAMPLE_MENU = [
-  { id: 'thali', name: 'Thali', price: 120, synonyms: ['thali', 'thaali', 'tiffin', 'dabba', 'meal', 'थाली', 'टिफिन', 'डब्बा'] },
-  { id: 'dal', name: 'Dal', price: 60, synonyms: ['dal', 'daal', 'वरण', 'varan', 'दाल'] },
-  { id: 'aloo-gobi', name: 'Aloo gobi', price: 70, synonyms: ['aloo gobi', 'aloo', 'gobi', 'आलू गोभी', 'आलू'] },
-  { id: 'roti', name: 'Roti', price: 10, synonyms: ['roti', 'chapati', 'chapatti', 'poli', 'phulka', 'रोटी', 'चपाती', 'पोळी'] },
-  { id: 'rice', name: 'Rice', price: 40, synonyms: ['rice', 'chawal', 'bhaat', 'chaval', 'चावल', 'भात'] },
-  { id: 'kanda-bhaji', name: 'Kanda bhaji', price: 50, synonyms: ['kanda bhaji', 'pyaaz pakoda', 'pyaz pakoda', 'bhaji', 'कांदा भजी', 'भजी'] },
+  { id: 'thali', names: { en: 'thali', hi: 'थाली', mr: 'थाळी' }, name: 'Thali', price: 120, synonyms: ['thali', 'thaali', 'tiffin', 'dabba', 'meal', 'थाली', 'थाळी', 'थाळ्या', 'टिफिन', 'डब्बा'] },
+  { id: 'dal', names: { en: 'dal', hi: 'दाल', mr: 'वरण' }, name: 'Dal', price: 60, synonyms: ['dal', 'daal', 'वरण', 'varan', 'दाल'] },
+  { id: 'aloo-gobi', names: { en: 'aloo gobi', hi: 'आलू गोभी', mr: 'आलू गोबी' }, name: 'Aloo gobi', price: 70, synonyms: ['aloo gobi', 'aloo', 'gobi', 'आलू गोभी', 'आलू'] },
+  { id: 'roti', names: { en: 'roti', hi: 'रोटी', mr: 'पोळी' }, name: 'Roti', price: 10, synonyms: ['roti', 'chapati', 'chapatti', 'poli', 'phulka', 'रोटी', 'चपाती', 'पोळी'] },
+  { id: 'rice', names: { en: 'rice', hi: 'चावल', mr: 'भात' }, name: 'Rice', price: 40, synonyms: ['rice', 'chawal', 'bhaat', 'chaval', 'चावल', 'भात'] },
+  { id: 'kanda-bhaji', names: { en: 'kanda bhaji', hi: 'कांदा भजी', mr: 'कांदा भजी' }, name: 'Kanda bhaji', price: 50, synonyms: ['kanda bhaji', 'pyaaz pakoda', 'pyaz pakoda', 'bhaji', 'कांदा भजी', 'भजी'] },
 ];
 
 // Owner-editable synonyms for ingredients in notes.

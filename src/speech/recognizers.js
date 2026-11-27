@@ -5,9 +5,10 @@
 //   start() / stop() / pause() / resume() / setEndSilence(ms)
 //
 // 1. WisprRecognizer  — records 16 kHz WAV segments with a simple voice-activity
-//    detector and sends them to /api/transcribe (our server adds the Wispr Flow key).
+//    detector and sends them to /api/transcribe. The server sends them to Wispr Flow,
+//    or to Groq Whisper when only a Groq key is set. Keys never reach the browser.
 // 2. BrowserRecognizer — the browser's built-in SpeechRecognition (Chrome/Edge), used
-//    when no Wispr key is configured. The UI always says which one is active.
+//    when no speech key is configured. The UI always says which one is active.
 
 export function browserSpeechAvailable() {
   return typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -47,8 +48,9 @@ export class BrowserRecognizer {
 }
 
 export class WisprRecognizer {
-  constructor({ onText, onState, onError, dictionary = () => [] }) {
-    this.name = 'wispr';
+  constructor({ onText, onState, onError, dictionary = () => [], language = ['hi', 'mr', 'en'] }) {
+    this.name = 'server';
+    this.language = language;
     this.onText = onText; this.onState = onState || (() => {}); this.onError = onError || (() => {});
     this.dictionary = dictionary;
     this.endSilenceMs = 1000;
@@ -93,10 +95,10 @@ export class WisprRecognizer {
     try {
       const r = await fetch('api/transcribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio: wav, language: ['hi', 'mr', 'en'], dictionary: this.dictionary() }),
+        body: JSON.stringify({ audio: wav, language: this.language, dictionary: this.dictionary() }),
       });
       const body = await r.json();
-      if (!r.ok) { this.onError(body?.message || 'Wispr Flow request failed'); return; }
+      if (!r.ok) { this.onError(body?.message || 'Speech-to-text request failed'); return; }
       if (body.text && body.text.trim()) this.onText(body.text.trim());
     } catch (err) {
       this.onError(String(err?.message || err));

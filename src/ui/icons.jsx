@@ -29,6 +29,8 @@ export const ArrowRightIcon = make(<><path d="M5 12h14" /><path d="m12 5 7 7-7 7
 export const ChevronIcon = make(<path d="m18 15-6-6-6 6" />);
 export const SendIcon = make(<><path d="m3 3 3 9-3 9 19-9Z" /><path d="M6 12h16" /></>);
 export const CheckIcon = make(<path d="M20 6 9 17l-5-5" />);
+export const XIcon = make(<path d="M18 6 6 18M6 6l12 12" />);
+export const PlusIcon = make(<path d="M12 5v14M5 12h14" />);
 export const CheckCircleIcon = make(<><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></>);
 export const DoubleCheckIcon = make(<><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></>);
 export const EarIcon = make(<><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0" /><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4" /></>);

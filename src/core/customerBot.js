@@ -4,6 +4,10 @@
 
 import { normalize, tokens, extractNumbers, parseTime, includesAny, classifyReply } from './text.js';
 import { NOTE_SYNONYMS } from './sampleData.js';
+import { line, itemsText, itemName, clockLabel, timeLabel, LANG_IDS } from './i18n.js';
+import { customerRuleText } from './intents.js';
+import { allNames, available, leftOf, unknownDish } from './menu.js';
+import { bump } from './metrics.js';
 
 const GREETINGS = ['hi', 'hii', 'hello', 'hey', 'namaste', 'namaskar', 'helo', 'नमस्ते', 'नमस्कार', 'हाय', 'हेलो'];
 const MENU_WORDS = ['menu', 'aaj kya hai', 'kya bana', 'kya banaya', 'kya milega', 'aaj kya', 'मेनू', 'आज क्या'];
@@ -13,18 +17,30 @@ const USUAL_WORDS = ['usual', 'roz wala', 'roj wala', 'same', 'hamesha wala', 'r
 const CHANGE_WORDS = ['kar do', 'karo', 'badal', 'badlo', 'change', 'instead', 'ki jagah', 'ke badle', 'chahiye ab', 'update', 'बदल', 'कर दो'];
 const QUESTION_WORDS = ['hai kya', 'milega', 'milegi', 'hai aaj', 'kya', 'kab', 'kaise', 'kyun', 'kitna', 'kitne', 'available', 'है क्या', 'मिलेगा', 'क्या'];
 
-export function menuText(state) {
-  const items = state.menu.map((m) => `${m.name} ₹${m.price}`).join(', ');
-  return `Aaj ka menu: ${items}. Order ke liye likhiye, jaise: "2 thali 1 baje".`;
+export const onToday = (m) => m.today !== false;
+
+const dishName = (state, m, lang) => (lang === 'en' || !m.names ? m.name : itemName(state, m.id, lang));
+
+// The full menu as sent on WhatsApp: one line per dish that is available, with price and how many are left.
+export function menuText(state, lang = state.lang) {
+  const items = state.menu.filter((m) => m.name && available(state, m)).map((m) => {
+    const left = leftOf(state, m);
+    return `• ${dishName(state, m, lang)} ₹${m.price}${left !== null ? ` (${line(lang, 'cLeft', { n: left })})` : ''}`;
+  }).join('\n');
+  return line(lang, 'cMenu', { items });
 }
 
-function hoursText(state) {
-  const f = ({ hour, minute }) => {
-    const h12 = ((hour + 11) % 12) + 1;
-    const ampm = hour < 12 ? 'subah' : 'shaam';
-    return `${ampm} ${h12}${minute ? ':' + String(minute).padStart(2, '0') : ''}`;
-  };
-  return `Kitchen ${f(state.hours.open)} se ${f(state.hours.close)} tak khula hai.`;
+// "Yes, dal is available (₹60, 5 left)." / "Sorry, no paneer today."
+function availabilityLine(state, lang, item) {
+  if (typeof item === 'string') return line(lang, 'cNoItem', { item });
+  const m = state.menu.find((x) => x.id === item.itemId);
+  if (!available(state, m)) return line(lang, 'cNoItem', { item: dishName(state, m, lang) });
+  const left = leftOf(state, m);
+  return line(lang, 'cYesItem', { item: dishName(state, m, lang), price: m.price, left: left !== null ? line(lang, 'cLeft', { n: left }) : '' });
+}
+
+function hoursText(state, lang) {
+  return line(lang, 'cHours', { open: clockLabel(lang, state.hours.open), close: clockLabel(lang, state.hours.close) });
 }
 
 export function findItems(state, text) {
@@ -34,7 +50,7 @@ export function findItems(state, text) {
   const found = [];
   for (const item of state.menu) {
     // longest synonym first so "aloo gobi" wins over "aloo"
-    const syns = [...item.synonyms].sort((a, b) => b.length - a.length);
+    const syns = allNames(item).sort((a, b) => b.length - a.length);
     const syn = syns.find((s) => n.includes(` ${normalize(s)} `));
     if (!syn) continue;
     const firstWord = normalize(syn).split(' ')[0];
@@ -58,8 +74,8 @@ function findNotes(text) {
   return Object.entries(NOTE_SYNONYMS).filter(([, syns]) => includesAny(text, syns)).map(([k]) => k);
 }
 
-function itemsLabel(state, items) {
-  return items.map((i) => `${i.qty} ${state.menu.find((m) => m.id === i.itemId)?.name.toLowerCase() || i.itemId}`).join(', ');
+function itemsLabel(state, items, lang = state.lang) {
+  return itemsText(state, items, lang);
 }
 
 function sameItems(a, b) {
@@ -72,16 +88,57 @@ export function activeOrdersFor(state, customerId) {
 }
 
 // Returns { state, effects } — never mutates the input.
-export function handleCustomerMessage(prev, customerId, text, now) {
+// `sorted` (optional): the AI label for this message. It only changes which words the rules read,
+// or sends the message to the owner. The rules below still make every decision.
+export function handleCustomerMessage(prev, customerId, rawText, now, sorted = null, extra = {}) {
   const state = structuredClone(prev);
   const effects = [];
   const reply = (t) => effects.push({ type: 'customerReply', customerId, text: t });
   const customer = state.customers.find((c) => c.id === customerId);
   if (!customer) return { state, effects };
   state.chats[customerId] = state.chats[customerId] || [];
-  state.chats[customerId].push({ from: 'customer', text, at: now });
+  state.chats[customerId].push({ from: 'customer', text: rawText, at: now });
+  if (sorted && LANG_IDS.includes(sorted.lang) && (sorted.confidence ?? 1) >= 0.6) customer.lang = sorted.lang;
+  const lang = customer.lang || state.lang;
+  const say = (key, p) => line(lang, key, p);
 
   const draft = state.drafts[customerId] || null;
+  // While waiting for an address, take the customer's own words as they are.
+  const ai = draft?.awaiting === 'address' ? null : customerRuleText(sorted, state);
+
+  // "Is X there today?" — answered from the owner's menu rows, without the cook:
+  // a yes or no for each dish asked about (on the menu or not), then the full menu.
+  if (!draft) {
+    let asked = findItems(state, rawText);
+    let unknown = [];
+    if (ai?.itemQuestion) {
+      asked = ai.itemQuestion.items.map((itemId) => ({ itemId, qty: null }));
+      unknown = ai.itemQuestion.other;
+    } else if (!asked.length) {
+      const u = unknownDish(state, rawText);
+      if (u) unknown = [u];
+    }
+    const looksAsked = Boolean(ai?.itemQuestion) || String(rawText).includes('?') || includesAny(rawText, QUESTION_WORDS);
+    const aiAllows = !sorted || ai?.itemQuestion || ai?.escalate === 'question' || ai?.ruleText === 'menu' || sorted.type === 'unclear';
+    if ((asked.length || unknown.length) && looksAsked && aiAllows && !asked.some((i) => i.qty) && !parseTime(rawText)) {
+      const answers = [...asked, ...unknown].map((x) => availabilityLine(state, lang, x));
+      reply(`${answers.join('\n')}\n\n${menuText(state, lang)}`);
+      return finish({ state, effects: [] });
+    }
+  }
+
+  if (ai?.escalate && !draft) {
+    const q = { id: `q${state.nextQuestionNo++}`, customerId, text: rawText.trim(), cookText: extra.cookText || null, kind: ai.escalate, status: 'open', at: now };
+    state.ownerQueue.push(q);
+    reply(say(ai.escalate === 'complaint' ? 'cComplaint' : 'cQuestionSent'));
+    effects.push({ type: 'ownerQuestion', questionId: q.id });
+    return finish({ state, effects: [] });
+  }
+  if (ai?.thanks && !draft) {
+    reply(say('cThanks'));
+    return finish({ state, effects: [] });
+  }
+  const text = ai?.ruleText || rawText;
   const items = findItems(state, text);
   const time = parseTime(text);
   const notes = findNotes(text);
@@ -97,16 +154,23 @@ export function handleCustomerMessage(prev, customerId, text, now) {
     }
     if (r.kind === 'no') {
       delete state.drafts[customerId];
-      reply('Theek hai, pehla order hi rahega.');
+      reply(say('cKeepFirst'));
       return finish({ state, effects: [] });
     }
-    reply('Doosra order bhi chahiye? "haan" ya "nahi" likhiye.');
+    reply(say('cDupAgain'));
     return finish({ state, effects: [] });
   }
 
   // 2. Orders paused near closing
   if (state.ordersPaused && looksLikeOrder) {
-    reply('Maaf kijiye, aaj ke order band ho gaye. Kal zaroor order kijiye.');
+    reply(say('cClosed'));
+    return finish({ state, effects: [] });
+  }
+
+  // 2b. Ordering a dish that is not available today (switched off or sold out)
+  const offItems = items.filter((i) => !available(state, state.menu.find((m) => m.id === i.itemId)));
+  if (!draft && offItems.length) {
+    reply(`${offItems.map((i) => availabilityLine(state, lang, i)).join('\n')}\n\n${menuText(state, lang)}`);
     return finish({ state, effects: [] });
   }
 
@@ -116,7 +180,7 @@ export function handleCustomerMessage(prev, customerId, text, now) {
     const order = active[active.length - 1];
     const newQty = items.find((i) => i.qty)?.qty ?? extractNumbers(text).slice(-1)[0].value;
     effects.push({ type: 'orderChange', orderId: order.id, newQty, newTime: time });
-    reply('Badlav kitchen ko bhej diya. Confirm hote hi batayenge.');
+    reply(say('cChangeSent'));
     return finish({ state, effects: [] });
   }
 
@@ -130,7 +194,7 @@ export function handleCustomerMessage(prev, customerId, text, now) {
     } else if (d.awaiting === 'time') {
       if (time) d.promised = time;
     } else if (d.awaiting === 'address') {
-      if (normalize(text).length >= 6) d.address = text.trim();
+      if (normalize(rawText).length >= 6) d.address = rawText.trim();
     }
     if (time && !d.promised) d.promised = time;
     d.notes = [...new Set([...(d.notes || []), ...notes])];
@@ -142,7 +206,7 @@ export function handleCustomerMessage(prev, customerId, text, now) {
     let d;
     if (wantsUsual && items.length === 0) {
       if (!customer.usual) {
-        reply('Aapka pehla order hai. Kitni thali, kitne baje chahiye?');
+        reply(say('cFirstOrder'));
         state.drafts[customerId] = { items: [{ itemId: 'thali', qty: null }], promised: time, address: null, notes, awaiting: 'qty' };
         return finish({ state, effects: [] });
       }
@@ -155,35 +219,39 @@ export function handleCustomerMessage(prev, customerId, text, now) {
 
   // 6. Greetings, menu, price, timing — answered from owner data only
   if (includesAny(text, GREETINGS) && tokens(text).length <= 4) {
-    reply(`Namaste ${customer.name} ji! ${menuText(state)}`);
-    if (customer.usual) reply(`Roz wala order bhejein? ${itemsLabel(state, [customer.usual])}. "usual" likhiye.`);
+    reply(say('cHello', { name: customer.name, menu: menuText(state, lang) }));
+    if (customer.usual) reply(say('cUsual', { items: itemsLabel(state, [customer.usual], lang) }));
     return finish({ state, effects: [] });
   }
   if (includesAny(text, MENU_WORDS) || includesAny(text, PRICE_WORDS)) {
-    reply(menuText(state));
+    reply(menuText(state, lang));
     return finish({ state, effects: [] });
   }
   if (includesAny(text, TIMING_WORDS)) {
-    reply(hoursText(state));
+    reply(hoursText(state, lang));
     return finish({ state, effects: [] });
   }
 
   // 7. A question only the owner can answer
   if (String(text).includes('?') || includesAny(text, QUESTION_WORDS)) {
-    const q = { id: `q${state.nextQuestionNo++}`, customerId, text: text.trim(), status: 'open', at: now };
+    const q = { id: `q${state.nextQuestionNo++}`, customerId, text: rawText.trim(), cookText: extra.cookText || null, kind: 'question', status: 'open', at: now };
     state.ownerQueue.push(q);
-    reply('Aapka sawaal kitchen ko bhej diya. Jaldi jawab milega.');
+    reply(say('cQuestionSent'));
     effects.push({ type: 'ownerQuestion', questionId: q.id });
     return finish({ state, effects: [] });
   }
 
   // 8. Unclear -> ask, never guess
-  reply('Maaf kijiye, samjha nahi. Order ke liye likhiye, jaise: "2 thali 1 baje".');
+  reply(say('cUnclear'));
   return finish({ state, effects: [] });
 
   function finish(res) {
-    const out = res.state;
+    let out = res.state;
     const all = [...effects, ...res.effects];
+    // "Answered for you": the app replied without needing the owner.
+    if (all.some((e) => e.type === 'customerReply') && !all.some((e) => e.type === 'ownerQuestion')) {
+      out = Object.assign(out, bump(out, 'answered', now));
+    }
     for (const e of all) {
       if (e.type === 'customerReply') {
         out.chats[e.customerId] = out.chats[e.customerId] || [];
@@ -196,6 +264,8 @@ export function handleCustomerMessage(prev, customerId, text, now) {
 
 function continueDraft(state, customer, d, now) {
   const effects = [];
+  const lang = customer.lang || state.lang;
+  const say = (key, p) => line(lang, key, p);
   const ask = (field, t) => {
     d.awaiting = field;
     state.drafts[customer.id] = d;
@@ -204,11 +274,18 @@ function continueDraft(state, customer, d, now) {
   };
   const missingQty = d.items.find((i) => !i.qty);
   if (missingQty) {
-    const name = state.menu.find((m) => m.id === missingQty.itemId)?.name.toLowerCase() || 'thali';
-    return ask('qty', `Kitni ${name} chahiye?`);
+    return ask('qty', say('cHowMany', { item: itemName(state, missingQty.itemId, lang) }));
   }
-  if (!d.promised) return ask('time', 'Kitne baje chahiye?');
-  if (!d.address && !customer.address) return ask('address', 'Delivery ka address bhejiye.');
+  // Not more than what is left today
+  const tooMany = d.items.find((i) => { const left = leftOf(state, state.menu.find((m) => m.id === i.itemId)); return left !== null && i.qty > left; });
+  if (tooMany) {
+    const m = state.menu.find((x) => x.id === tooMany.itemId);
+    const left = leftOf(state, m);
+    tooMany.qty = null;
+    return ask('qty', say('cOnlyLeft', { n: left, item: dishName(state, m, lang) }));
+  }
+  if (!d.promised) return ask('time', say('cWhen'));
+  if (!d.address && !customer.address) return ask('address', say('cAddress'));
   if (d.address && !customer.address) customer.address = d.address; // remember for next time
 
   // Duplicate: same items and time as an active order
@@ -216,7 +293,7 @@ function continueDraft(state, customer, d, now) {
   if (dup) {
     d.awaiting = 'duplicate';
     state.drafts[customer.id] = d;
-    effects.push({ type: 'customerReply', customerId: customer.id, text: `Yeh order pehle se hai (${itemsLabel(state, d.items)}, ${d.promised.label}). Doosra order bhi chahiye? "haan" ya "nahi".` });
+    effects.push({ type: 'customerReply', customerId: customer.id, text: say('cDuplicate', { items: itemsLabel(state, d.items, lang), time: timeLabel(lang, d.promised) }) });
     return { state, effects };
   }
   delete state.drafts[customer.id];
@@ -240,7 +317,7 @@ function createOrder(state, customer, d, now) {
   return {
     state,
     effects: [
-      { type: 'customerReply', customerId: customer.id, text: 'Order mil gaya. Kitchen confirm karte hi batayenge.' },
+      { type: 'customerReply', customerId: customer.id, text: line(customer.lang || state.lang, 'cReceived') },
       { type: 'orderReady', orderId: order.id },
     ],
   };

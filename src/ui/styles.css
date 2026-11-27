@@ -65,7 +65,6 @@ h1, h2, h3, p { margin: 0; }
 }
 .pill-mode { background: var(--lav-soft); color: var(--lav-ink); border: 1px solid var(--lav-border); text-transform: uppercase; letter-spacing: 0.55px; font-size: 11px; }
 .pill-clock { background: var(--card); border: 1px solid var(--line-2); font-variant-numeric: tabular-nums; font-size: 13px; }
-.pill-demo-btn { background: var(--card); border: 1px solid var(--lav); font-size: 13px; min-height: 36px; padding: 6px 12px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .dot.live { background: var(--ok); }
 
@@ -73,7 +72,7 @@ h1, h2, h3, p { margin: 0; }
 
 .tabbar {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 448px; z-index: 20;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.04);
 }
@@ -135,6 +134,8 @@ h1, h2, h3, p { margin: 0; }
 .engine b { display: block; font-size: 15px; }
 .engine span { font-size: 13px; color: var(--muted); }
 .engine + .engine { margin-top: 8px; }
+.engine .label { display: block; font-size: 10px; margin-bottom: 2px; }
+.engine b .tag { vertical-align: middle; }
 .steps { display: flex; flex-direction: column; gap: 10px; }
 .step { display: flex; gap: 12px; align-items: flex-start; }
 .step-num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--lav); font-weight: 800; font-size: 13px; flex-shrink: 0; }
@@ -280,3 +281,71 @@ h1, h2, h3, p { margin: 0; }
 .listen-bar > .shrink { width: 100%; animation: shrink 6s linear forwards; }
 @keyframes shrink { from { width: 100%; } to { width: 0%; } }
 @media (prefers-reduced-motion: reduce) { .listen-bar > .shrink { animation: none; } }
+
+/* Language picker: radio group of three large pills, selected one marked by colour, border and a check */
+.lang-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.lang-opt {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 64px; padding: 10px 6px; border-radius: var(--r-inner); border: 1px solid var(--line-2);
+  background: var(--card); color: var(--ink); font: inherit; cursor: pointer; touch-action: manipulation;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.lang-opt b { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.lang-opt span { font-size: 12px; color: var(--muted); }
+.lang-opt.on { background: var(--lav-soft); border: 2px solid var(--ink); }
+.lang-opt .icon, .lang-opt svg { position: absolute; top: 6px; right: 6px; }
+.lang-opt:active { background: var(--lav-soft); }
+
+/* Devanagari needs a little more line height */
+html[lang="hi"] body, html[lang="mr"] body { line-height: 1.55; }
+html[lang="hi"] .hero-line, html[lang="mr"] .hero-line { line-height: 1.45; }
+
+/* Owner: today's menu as large tap tiles (on = lavender with a check; off = grey, struck through) */
+.dish-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.dish {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 64px; padding: 12px 14px; border-radius: var(--r-inner); border: 1px solid var(--line-2);
+  background: #F0F0F0; color: var(--muted); font: inherit; text-align: left; cursor: pointer; touch-action: manipulation;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.dish b { font-size: 16px; text-decoration: line-through; }
+.dish span { font-size: 13px; }
+.dish.on { background: var(--lav-soft); border: 2px solid var(--ink); color: var(--ink); }
+.dish.on b { text-decoration: none; }
+.dish svg { position: absolute; top: 8px; right: 8px; }
+
+/* Owner: kitchen hours */
+.hours { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hours label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.hours input { min-height: 48px; border: 1px solid var(--line-2); border-radius: var(--r-inner); padding: 0 12px; font: inherit; font-size: 17px; color: var(--ink); background: var(--card); }
+
+/* Kitchen: "what next" is now one tappable card */
+button.card.next-box { width: 100%; text-align: left; font: inherit; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+button.card.next-box > div { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+button.card.next-box b { font-size: 17px; }
+button.card.next-box span:not(.tag) { font-size: 13px; color: var(--muted); }
+.lang-opt { min-height: 56px; padding: 10px 24px; }
+.lang-opt svg { top: 5px; right: 5px; width: 15px; height: 15px; }
+
+/* Kitchen: what voice saved today, under the numbers */
+.saved-strip { margin-top: 12px; padding: 12px 14px; border-radius: var(--r-inner); background: var(--ok-bg); color: var(--ok-ink); }
+.saved-main { display: flex; align-items: baseline; gap: 8px; }
+.saved-main b { font-size: 20px; font-weight: 800; }
+.saved-main span { font-size: 14px; font-weight: 600; }
+.saved-sub { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: 13px; }
+
+/* Owner: menu as editable rows (name, price, available, remove) */
+.menu-rows { display: flex; flex-direction: column; gap: 8px; }
+.menu-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 84px 44px; gap: 6px; align-items: start; }
+.menu-row.head { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); align-items: end; }
+.menu-row input {
+  width: 100%; min-height: 48px; box-sizing: border-box; border: 1px solid var(--line-2); border-radius: 12px;
+  padding: 0 10px; font: inherit; font-size: 16px; color: var(--ink); background: var(--card);
+}
+.menu-row input:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 3px var(--lav-soft); }
+.menu-row.off input { color: var(--muted); background: #F3F3F3; }
+.menu-row .qty { display: flex; flex-direction: column; gap: 2px; }
+.menu-row .qty small { font-size: 11px; color: var(--muted); padding-left: 4px; }
+.row-del { min-height: 48px; border: none; border-radius: 12px; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.row-del:hover { background: #F3F3F3; color: var(--red); }
+.add-row { margin-top: 12px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; }

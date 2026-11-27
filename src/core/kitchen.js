@@ -3,7 +3,7 @@
 // Speech recognition only turns sound into text; this file decides what it means.
 
 import { classifyReply, extractNumbers, includesAny, normalize, numberToHindi, parseTime, tokens } from './text.js';
-import { itemsLabel } from './customerBot.js';
+import { line, itemsText, itemName, timeLabel } from './i18n.js';
 
 export const TIMING = {
   listenWindowMs: 6000, // wait up to 6 s for the cook to start replying after a question
@@ -18,10 +18,10 @@ export const TIMING = {
 
 const CMD = {
   stop: ['ruko', 'ruk jao', 'stop', 'bas karo', 'chup', 'रुको', 'थांबा', 'thamba'],
-  undo: ['galat wapas', 'galat', 'wapas', 'undo', 'galti', 'गलत', 'वापस', 'chukla'],
-  quiet: ['abhi mat bolo', 'mat bolo', 'chup raho', 'shant raho', 'baad mein bolna', 'disturb mat', 'मत बोलो', 'बोलू नका', 'bolu naka'],
-  next: ['ab kya banaun', 'ab kya banau', 'kya banaun', 'kya banau', 'kya banana hai', 'next kya', 'pehle kya', 'क्या बनाऊं', 'क्या बनाऊँ', 'काय बनवू', 'kay banvu'],
-  prep: ['kitne thali', 'kitni thali', 'kitne tiffin', 'kitna banana', 'prep', 'total kitna', 'कितनी थाली', 'कितने थाली', 'किती थाळी', 'kiti thali'],
+  undo: ['wrong undo', 'mistake', 'galat wapas', 'galat', 'wapas', 'undo', 'galti', 'गलत', 'वापस', 'chukla'],
+  quiet: ['be quiet', 'quiet please', 'stay quiet', 'dont talk', 'abhi mat bolo', 'mat bolo', 'chup raho', 'shant raho', 'baad mein bolna', 'disturb mat', 'मत बोलो', 'बोलू नका', 'bolu naka'],
+  next: ['what next', 'what should i cook', 'what to cook', 'ab kya banaun', 'ab kya banau', 'kya banaun', 'kya banau', 'kya banana hai', 'next kya', 'pehle kya', 'क्या बनाऊं', 'क्या बनाऊँ', 'काय बनवू', 'kay banvu'],
+  prep: ['how many thali', 'how many in total', 'total count', 'kitne thali', 'kitni thali', 'kitne tiffin', 'kitna banana', 'prep', 'total kitna', 'कितनी थाली', 'कितने थाली', 'किती थाळी', 'kiti thali'],
   delivered: ['delivered', 'deliver ho gaya', 'deliver kiya', 'de diya', 'de aaya', 'pahuncha', 'pohocha', 'pahunch gaya', 'दे दिया', 'पहुंचा', 'पोहोचलं'],
   cancel: ['cancel', 'radd', 'रद्द', 'कैंसल'],
   refund: ['refund', 'paise wapas', 'रिफंड'],
@@ -59,6 +59,9 @@ function ctx(prev, now) {
     effects,
     say(text, opts = {}) { effects.push({ type: 'say', text, kind: opts.kind || 'info', orderId: opts.orderId }); },
     listen(expect = 'yesno') { effects.push({ type: 'listen', expect }); },
+    t(key, p) { return line(state.lang, key, p); },
+    // customer lines use the customer's own language when known, else the app language
+    tc(customerId, key, p) { const c = state.customers.find((x) => x.id === customerId); return line(c?.lang || state.lang, key, p); },
     reply(customerId, text) {
       effects.push({ type: 'customerReply', customerId, text });
       state.chats[customerId] = state.chats[customerId] || [];
@@ -73,7 +76,7 @@ function ctx(prev, now) {
 // ---------- prompts ----------
 function confirmPrompt(state, order) {
   const c = customerOf(state, order);
-  return `${c.name} ji, ${itemsLabel(state, order.items)}, ${order.promised.label}. Haan?`;
+  return line(state.lang, 'confirmAsk', { name: c.name, items: itemsText(state, order.items, state.lang), time: timeLabel(state.lang, order.promised) });
 }
 
 function askDialog(k, dialog, line, expect) {
@@ -97,7 +100,7 @@ function startNext(k, now) {
   const q = s.ownerQueue.find((x) => x.status === 'open');
   if (q) {
     const c = s.customers.find((x) => x.id === q.customerId);
-    askDialog(k, { kind: 'ownerQ', questionId: q.id, stage: 'answer' }, `${c.name} ji pooch rahe hain: ${q.text.replace(/\?+$/, '')}?`, 'free');
+    askDialog(k, { kind: 'ownerQ', questionId: q.id, stage: 'answer' }, k.t('ownerQAsk', { name: c.name, q: (q.cookText || q.text).replace(/\?+$/, '') }), 'free');
   }
 }
 
@@ -105,15 +108,15 @@ function startNext(k, now) {
 function unclear(k, now) {
   const d = k.state.dialog;
   d.attempts += 1;
-  if (d.attempts === 1) { k.say('Phir boliye.', { kind: 'question', orderId: d.orderId }); k.listen(d.kind === 'confirm' ? 'number' : 'yesno'); return; }
-  if (d.attempts === 2) { k.say('Haan ya nahi boliye.', { kind: 'question', orderId: d.orderId }); k.listen('yesno'); return; }
+  if (d.attempts === 1) { k.say(k.t('sayAgain'), { kind: 'question', orderId: d.orderId }); k.listen(d.kind === 'confirm' ? 'number' : 'yesno'); return; }
+  if (d.attempts === 2) { k.say(k.t('yesOrNo'), { kind: 'question', orderId: d.orderId }); k.listen('yesno'); return; }
   // 3rd time: stop asking, leave it on screen with buttons
   if (d.kind === 'confirm') {
     const o = orderById(k.state, d.orderId);
     if (o) o.status = 'pending';
-    k.say('Button se bataiye.', { kind: 'info', orderId: d.orderId });
+    k.say(k.t('useButtons'), { kind: 'info', orderId: d.orderId });
   } else {
-    k.say('Baad mein poochungi.');
+    k.say(k.t('askLater'));
   }
   k.state.dialog = null;
   k.log(`Unclear 3 times; left on screen${d.orderId ? ` (${d.orderId})` : ''}`);
@@ -125,17 +128,18 @@ function confirmOrder(k, order, now) {
   order.status = 'confirmed';
   order.confirmedAt = now;
   // Save first; only then tell the customer.
-  k.reply(order.customerId, `Order confirmed: ${itemsLabel(k.state, order.items)}, ${order.promised.label} tak. Dhanyavaad!`);
+  const cl = customerOf(k.state, order)?.lang || k.state.lang;
+  k.reply(order.customerId, line(cl, 'cConfirmed', { items: itemsText(k.state, order.items, cl), time: timeLabel(cl, order.promised) }));
   k.state.lastAction = { kind: 'confirm', orderId: order.id, at: now };
-  k.say('Saved.', { kind: 'saved', orderId: order.id });
+  k.say(k.t('saved'), { kind: 'saved', orderId: order.id });
   k.log(`Confirmed ${order.id} (${customerOf(k.state, order).name})`);
 }
 
 function declineOrder(k, order, now) {
   order.status = 'declined';
-  k.reply(order.customerId, 'Maaf kijiye, aaj yeh order nahi le paayenge.');
+  k.reply(order.customerId, k.tc(order.customerId, 'cDeclined'));
   k.state.lastAction = { kind: 'decline', orderId: order.id, at: now };
-  k.say('Theek hai, mana kar diya.', { kind: 'saved', orderId: order.id });
+  k.say(k.t('declined'), { kind: 'saved', orderId: order.id });
   k.log(`Declined ${order.id}`);
 }
 
@@ -143,6 +147,12 @@ function isBigOrder(state, order) {
   const c = customerOf(state, order);
   if (!c?.usual) return false;
   return mainQty(order) > 3 * c.usual.qty;
+}
+
+function setQuiet(k, minutes, now) {
+  k.state.quietUntil = now + minutes * 60 * 1000;
+  k.say(k.t('quietSet', { min: minutes }), { kind: 'saved' });
+  k.log(`Quiet mode ${minutes} min`);
 }
 
 // ---------- public API ----------
@@ -202,13 +212,17 @@ export function setSpeakingAs(prev, who) {
   return { ...prev, speakingAs: who };
 }
 
-export function onHeard(prev, rawText, now) {
+// `ruleText` (optional): plain words from the AI label (see intents.js). Commands and answers are read
+// from it; the owner phrase check and free answers always use what was really said.
+// `extra.answerForCustomer` (optional): the cook's free answer translated into the customer's language.
+export function onHeard(prev, rawText, now, ruleText = null, extra = {}) {
   const k = ctx(prev, now);
   const s = k.state;
-  const text = String(rawText || '').trim();
-  s.lastHeard = { text, at: now };
-  if (!text) return k.done();
+  const raw = String(rawText || '').trim();
+  s.lastHeard = { text: raw, at: now };
+  if (!raw) return k.done();
   const d = s.dialog;
+  let text = raw;
 
   // Owner phrase check has priority over everything else
   if (d?.kind === 'phrase') {
@@ -217,12 +231,14 @@ export function onHeard(prev, rawText, now) {
       doOwnerAction(k, d.action, now);
     } else {
       s.dialog = null;
-      k.say('Phrase match nahi hua. Kuch nahi badla.');
+      k.say(k.t('phraseFail'));
       k.log(`Owner check failed for ${d.action.kind}`);
     }
     startNext(k, now);
     return k.done();
   }
+
+  text = ruleText || raw;
 
   // ---- commands that work at any time ----
   if (includesAny(text, CMD.stop) && tokens(text).length <= 3) {
@@ -236,7 +252,9 @@ export function onHeard(prev, rawText, now) {
   }
   if (includesAny(text, CMD.quiet)) {
     if (d?.kind === 'confirm' || d?.kind === 'ownerQ') s.dialog = null; // will be asked again after quiet
-    askDialog(k, { kind: 'quiet' }, `${TIMING.defaultQuietMin} minute?`, 'number');
+    const said = extractNumbers(text).map((x) => x.value).find((v) => v > 0 && v <= 120);
+    if (said) { setQuiet(k, said, now); return k.done(); } // "5 minute chup raho": no need to ask
+    askDialog(k, { kind: 'quiet' }, k.t('quietAsk', { min: TIMING.defaultQuietMin }), 'number');
     return k.done();
   }
   if (includesAny(text, CMD.next)) {
@@ -258,21 +276,22 @@ export function onHeard(prev, rawText, now) {
   }
   if (!d && isMenuCommand(text)) {
     const m = parseMenuCommand(s, text);
-    askDialog(k, { kind: 'menu', menu: m }, `${m.dishes.join(', ')}, thali ${m.price}. Sahi?`, 'yesno');
+    askDialog(k, { kind: 'menu', menu: m }, k.t('menuAsk', { dishes: m.dishes.join(', '), price: m.price }), 'yesno');
     return k.done();
   }
 
   // ---- answers to the open question ----
   if (!d) {
     // No open question and no command: probably background talk. Show it, do nothing.
-    k.effects.push({ type: 'ignored', text });
+    k.effects.push({ type: 'ignored', text: raw });
     return k.done();
   }
 
   if (d.kind === 'ownerQ' && d.stage === 'answer') {
-    d.answer = text;
+    d.answer = raw;
+    d.answerOut = extra.answerForCustomer || raw; // what the customer receives
     d.stage = 'send';
-    askDialog(k, d, `Bhej doon: "${text}"?`, 'yesno');
+    askDialog(k, d, k.t('sendAnswer', { a: raw }), 'yesno');
     return k.done();
   }
 
@@ -283,7 +302,7 @@ export function onHeard(prev, rawText, now) {
     if (!o) { s.dialog = null; startNext(k, now); return k.done(); }
     if (r.kind === 'yes') {
       if (d.stage === 'confirm' && isBigOrder(s, o)) {
-        askDialog(k, { ...d, stage: 'sanity', attempts: 0 }, `${mainQty(o)} thali? Sach mein?`, 'yesno');
+        askDialog(k, { ...d, stage: 'sanity', attempts: 0 }, k.t('sanity', { n: mainQty(o) }), 'yesno');
         return k.done();
       }
       s.dialog = null;
@@ -294,7 +313,7 @@ export function onHeard(prev, rawText, now) {
     } else if (r.kind === 'later') {
       s.dialog = null;
       s.snoozed[o.id] = now + TIMING.snoozeMs;
-      k.say('Theek hai, 5 minute baad.');
+      k.say(k.t('snoozed'));
       k.log(`Snoozed ${o.id} for 5 min`);
     } else if (r.kind === 'correction' && d.stage === 'confirm') {
       o.items = [{ ...o.items[0], qty: r.value }, ...o.items.slice(1)];
@@ -313,12 +332,10 @@ export function onHeard(prev, rawText, now) {
     let minutes = null;
     if (r.kind === 'yes') minutes = TIMING.defaultQuietMin;
     else if (r.kind === 'correction') minutes = r.value;
-    else if (r.kind === 'no') { s.dialog = null; k.say('Theek hai.'); startNext(k, now); return k.done(); }
+    else if (r.kind === 'no') { s.dialog = null; k.say(k.t('okay')); startNext(k, now); return k.done(); }
     if (!minutes) { unclear(k, now); return k.done(); }
     s.dialog = null;
-    s.quietUntil = now + minutes * 60 * 1000;
-    k.say(`Theek hai, ${minutes} minute.`, { kind: 'saved' });
-    k.log(`Quiet mode ${minutes} min`);
+    setQuiet(k, minutes, now);
     return k.done();
   }
 
@@ -328,12 +345,12 @@ export function onHeard(prev, rawText, now) {
       s.dialog = null;
       q.status = 'answered';
       q.answer = d.answer;
-      k.reply(q.customerId, d.answer);
-      k.say('Bhej diya.', { kind: 'saved' });
+      k.reply(q.customerId, d.answerOut || d.answer);
+      k.say(k.t('sent'), { kind: 'saved' });
       k.log(`Answered ${q.id}`);
     } else if (r.kind === 'no') {
       s.dialog = null;
-      askDialog(k, { kind: 'ownerQ', questionId: q.id, stage: 'answer' }, 'Toh kya bolun?', 'free');
+      askDialog(k, { kind: 'ownerQ', questionId: q.id, stage: 'answer' }, k.t('whatToSay'), 'free');
       return k.done();
     } else { unclear(k, now); return k.done(); }
     startNext(k, now);
@@ -342,8 +359,8 @@ export function onHeard(prev, rawText, now) {
 
   if (d.kind === 'closing') {
     s.dialog = null;
-    if (r.kind === 'yes') { s.ordersPaused = true; k.say('Naye order band.', { kind: 'saved' }); k.log('Orders paused for the day'); }
-    else if (r.kind === 'no') { k.say('Theek hai, chalu rakhti hoon.'); }
+    if (r.kind === 'yes') { s.ordersPaused = true; k.say(k.t('ordersPaused'), { kind: 'saved' }); k.log('Orders paused for the day'); }
+    else if (r.kind === 'no') { k.say(k.t('keepOpen')); }
     else { s.dialog = d; unclear(k, now); return k.done(); }
     startNext(k, now);
     return k.done();
@@ -353,11 +370,15 @@ export function onHeard(prev, rawText, now) {
     s.dialog = null;
     if (r.kind === 'yes') {
       s.todayDishes = d.menu.dishes;
+      const said = d.menu.dishes.map((x) => normalize(x));
+      const matched = s.menu.filter((m) => m.id !== 'thali' && m.synonyms.some((syn) => said.includes(normalize(syn))));
+      if (matched.length) s.menu.forEach((m) => { if (m.id !== 'thali') m.today = matched.includes(m); });
       const thali = s.menu.find((m) => m.id === 'thali');
       if (thali && d.menu.price) thali.price = d.menu.price;
-      k.say('Menu saved.', { kind: 'saved' });
+      s.menuSetOn = new Date(now).toDateString();
+      k.say(k.t('menuSaved'), { kind: 'saved' });
       k.log(`Menu set: ${d.menu.dishes.join(', ')}, thali ${d.menu.price}`);
-    } else if (r.kind === 'no') { k.say('Theek hai, phir se boliye.'); }
+    } else if (r.kind === 'no') { k.say(k.t('sayMenuAgain')); }
     else { s.dialog = d; unclear(k, now); return k.done(); }
     startNext(k, now);
     return k.done();
@@ -377,22 +398,22 @@ function undo(k, now) {
   const s = k.state;
   const a = s.lastAction;
   if (!a || now - a.at > TIMING.undoWindowMs) {
-    k.say('Wapas karne ki der ho gayi.');
+    k.say(k.t('undoLate'));
     return;
   }
   const o = orderById(s, a.orderId);
   if (a.kind === 'confirm' && o) {
     o.status = 'awaiting';
-    k.reply(o.customerId, 'Maaf kijiye, pichla confirmation galti se gaya. Hum dobara confirm karke batayenge.');
+    k.reply(o.customerId, k.tc(o.customerId, 'cUndoConfirm'));
   } else if (a.kind === 'decline' && o) {
     o.status = 'awaiting';
-    k.reply(o.customerId, 'Maaf kijiye, galti hui. Aapka order dobara dekh rahe hain.');
+    k.reply(o.customerId, k.tc(o.customerId, 'cUndoDecline'));
   } else if (a.kind === 'delivered' && o) {
     o.status = 'confirmed';
   }
   s.lastAction = null;
   s.dialog = null;
-  k.say('Wapas kiya.', { kind: 'saved' });
+  k.say(k.t('undone'), { kind: 'saved' });
   k.log(`Undid ${a.kind} ${a.orderId}`);
   startNext(k, now);
 }
@@ -401,27 +422,24 @@ function sayNextDish(k, now) {
   const s = k.state;
   const open = s.orders.filter((o) => o.status === 'confirmed')
     .sort((a, b) => promisedMs(a, now) - promisedMs(b, now) || mainQty(a) - mainQty(b));
-  if (!open.length) { k.say('Abhi koi confirmed order nahi.'); return; }
+  if (!open.length) { k.say(k.t('noConfirmed')); return; }
   const first = open[0];
   const c = customerOf(s, first);
   const itemId = first.items[0].itemId;
   const total = open.reduce((sum, o) => sum + o.items.filter((i) => i.itemId === itemId).reduce((x, i) => x + i.qty, 0), 0);
-  const name = s.menu.find((m) => m.id === itemId)?.name.toLowerCase() || itemId;
-  const line = total > first.items[0].qty
-    ? `Pehle ${c.name} ji, ${first.promised.label}. ${total} ${name} ek saath.`
-    : `Pehle ${c.name} ji, ${first.promised.label}. ${first.items[0].qty} ${name}.`;
-  k.say(line, { kind: 'info', orderId: first.id });
+  const p = { name: c.name, time: timeLabel(s.lang, first.promised), dish: itemName(s, itemId, s.lang), total, qty: first.items[0].qty };
+  k.say(k.t(total > first.items[0].qty ? 'nextBatch' : 'nextOne', p), { kind: 'info', orderId: first.id });
   k.effects.push({ type: 'ranked', orderIds: open.map((o) => o.id) });
 }
 
 function sayPrep(k) {
   const s = k.state;
   const todays = s.orders.filter((o) => ['confirmed', 'delivered'].includes(o.status));
-  if (!todays.length) { k.say('Abhi koi confirmed order nahi.'); return; }
+  if (!todays.length) { k.say(k.t('noConfirmed')); return; }
   const byItem = {};
   todays.forEach((o) => o.items.forEach((i) => { byItem[i.itemId] = (byItem[i.itemId] || 0) + i.qty; }));
   const parts = Object.entries(byItem).sort((a, b) => b[1] - a[1]).slice(0, 2)
-    .map(([id, q]) => `${q} ${s.menu.find((m) => m.id === id)?.name.toLowerCase() || id}`);
+    .map(([id, q]) => `${q} ${itemName(s, id, s.lang)}`);
   const noteCounts = {};
   todays.forEach((o) => (o.notes || []).forEach((n) => { noteCounts[n] = (noteCounts[n] || 0) + mainQty(o); }));
   const notes = Object.entries(noteCounts).slice(0, 1).map(([n, q]) => `${q} ${n}`);
@@ -433,18 +451,18 @@ function markDelivered(k, text, now) {
   const n = normalize(text);
   const candidates = s.orders.filter((o) => o.status === 'confirmed');
   const match = candidates.find((o) => n.includes(normalize(customerOf(s, o).name)));
-  if (!match) { k.say('Kiska order? Naam boliye.'); return; }
+  if (!match) { k.say(k.t('whose')); return; }
   match.status = 'delivered';
   match.deliveredAt = now;
   s.lastAction = { kind: 'delivered', orderId: match.id, at: now };
-  k.say('Noted.', { kind: 'saved', orderId: match.id });
+  k.say(k.t('noted'), { kind: 'saved', orderId: match.id });
   k.log(`Delivered ${match.id} (${customerOf(s, match).name})`);
 }
 
 function requestOwnerAction(k, kind, text, now) {
   const s = k.state;
   if (s.speakingAs !== 'owner') {
-    k.say('Yeh sirf owner kar sakti hain.');
+    k.say(k.t('ownerOnly'));
     k.log(`Blocked ${kind}: not owner`);
     return;
   }
@@ -452,17 +470,17 @@ function requestOwnerAction(k, kind, text, now) {
   let action = { kind };
   if (kind === 'cancel' || kind === 'refund') {
     const o = s.orders.find((x) => ['awaiting', 'pending', 'confirmed'].includes(x.status) && n.includes(normalize(customerOf(s, x).name)));
-    if (!o) { k.say('Kiska order? Naam boliye.'); return; }
+    if (!o) { k.say(k.t('whose')); return; }
     action.orderId = o.id;
   } else if (kind === 'price') {
     const item = s.menu.find((m) => m.synonyms.some((syn) => n.includes(normalize(syn))));
     const nums = extractNumbers(text);
-    if (!item || !nums.length) { k.say('Kis cheez ka daam? Phir boliye.'); return; }
+    if (!item || !nums.length) { k.say(k.t('priceWhich')); return; }
     action = { kind, itemId: item.id, price: nums[nums.length - 1].value };
   }
   const phrase = OWNER_PHRASES[Math.floor(Math.random() * OWNER_PHRASES.length)];
-  s.dialog = { kind: 'phrase', phrase, action, prompt: 'Screen par likha phrase boliye.', attempts: 0, repeated: false };
-  k.say('Screen par likha phrase boliye.', { kind: 'question' });
+  s.dialog = { kind: 'phrase', phrase, action, prompt: k.t('sayPhrase'), attempts: 0, repeated: false };
+  k.say(k.t('sayPhrase'), { kind: 'question' });
   k.effects.push({ type: 'showPhrase', phrase });
   k.listen('free');
 }
@@ -472,18 +490,18 @@ function doOwnerAction(k, action, now) {
   if (action.kind === 'cancel') {
     const o = orderById(s, action.orderId);
     o.status = 'cancelled';
-    k.reply(o.customerId, 'Aapka order cancel ho gaya.');
-    k.say('Cancel ho gaya.', { kind: 'saved', orderId: o.id });
+    k.reply(o.customerId, k.tc(o.customerId, 'cCancelled'));
+    k.say(k.t('cancelled'), { kind: 'saved', orderId: o.id });
     k.log(`Cancelled ${o.id}`);
   } else if (action.kind === 'refund') {
     const o = orderById(s, action.orderId);
     o.refundNoted = true;
-    k.say('Refund note kiya.', { kind: 'saved', orderId: o.id });
+    k.say(k.t('refundNoted'), { kind: 'saved', orderId: o.id });
     k.log(`Refund noted for ${o.id} (payments are out of scope)`);
   } else if (action.kind === 'price') {
     const item = s.menu.find((m) => m.id === action.itemId);
     item.price = action.price;
-    k.say(`${item.name} ab ${action.price}.`, { kind: 'saved' });
+    k.say(k.t('priceSet', { item: itemName(s, item.id, s.lang), price: action.price }), { kind: 'saved' });
     k.log(`Price of ${item.name} set to ${action.price}`);
   }
 }
@@ -514,22 +532,32 @@ export function tick(prev, now) {
     if (left > 0 && left <= TIMING.lateAlertMs) {
       o.alerted = true;
       const mins = Math.max(1, Math.round(left / 60000));
-      k.say(`${customerOf(s, o).name} ji ka order ${mins} minute mein due.`, { kind: 'alert', orderId: o.id });
+      k.say(k.t('lateAlert', { name: customerOf(s, o).name, min: mins }), { kind: 'alert', orderId: o.id });
       k.log(`Late alert ${o.id}`);
     }
+  }
+
+  // Morning: once a day, in the first 2 hours after opening, ask for today's menu (unless it was already set).
+  const day = new Date(now).toDateString();
+  const openAt = new Date(now); openAt.setHours(s.hours.open.hour, s.hours.open.minute || 0, 0, 0);
+  if (s.menuAskedOn !== day && s.menuSetOn !== day && !s.dialog && !s.quietUntil
+      && now >= openAt.getTime() && now < openAt.getTime() + 2 * 60 * 60 * 1000) {
+    s.menuAskedOn = day;
+    k.say(k.t('menuMorning'), { kind: 'info' });
+    k.log('Asked for today\'s menu');
   }
 
   if (s.quietUntil && now >= s.quietUntil) {
     s.quietUntil = null;
     const waiting = s.orders.filter((o) => o.status === 'awaiting').length + s.ownerQueue.filter((q) => q.status === 'open').length;
     k.log('Quiet mode ended');
-    if (waiting) k.say(`${waiting} naye kaam.`, { kind: 'info' });
+    if (waiting) k.say(k.t('newWork', { n: waiting }), { kind: 'info' });
   }
 
   if (!s.closingWarned && !s.ordersPaused && closeMs(s, now) - now <= TIMING.closingWarnMs && closeMs(s, now) > now && !s.dialog && !s.quietUntil) {
     s.closingWarned = true;
     const left = s.orders.filter((o) => ['awaiting', 'pending', 'confirmed'].includes(o.status)).length;
-    askDialog(k, { kind: 'closing' }, `${left} order baaki. Naye order band karoon?`, 'yesno');
+    askDialog(k, { kind: 'closing' }, k.t('closingAsk', { n: left }), 'yesno');
     return k.done();
   }
 

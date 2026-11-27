@@ -69,3 +69,51 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
 - **Chat screen: WhatsApp-style layout** instead of the Figma's chat, so judges instantly read it as WhatsApp.
   No WhatsApp logo or name as branding; labelled Demo.
 - **Logo:** maroon "N" with a spoon on lavender.
+
+## AI, voice and language decisions (27 Nov, night)
+- **Services:** Wispr Flow for speech in when its key arrives (API access needs approval; the hackathon gives only the
+  app, not API keys). Until then **Groq Whisper** for speech in, **Groq** LLM for sorting, **Sarvam** for the app's voice.
+  Groq's own voices are English/Arabic only, so Sarvam does the speaking.
+- **The AI only labels, it never replies.** Sohan wanted fixed replies plus an AI that sorts messages into types
+  (greeting, order, complaint, ...), decides what the app can answer and what goes to the owner. The label is turned
+  into words the existing rules understand, so the tested rules still decide. Replies stay fixed sentences.
+- **Which model where:** the cook's voice loop needs speed, so it uses the smaller `gpt-oss-20b`; customer chat has
+  more types and longer messages, so it uses `gpt-oss-120b`. Both are `.env` settings so the team can swap them.
+- **Always escalate to the owner:** complaints, payment, special requests, questions the menu can't answer.
+- **Languages:** English first, then Hindi and Marathi in Devanagari. The cook picks one on the Start screen;
+  customer replies follow the customer's detected language. Translations need a native-speaker check.
+- **Free-tier limits are enough for a 3-day demo** if prompts stay short; on a rate limit the app says so and uses
+  word rules. Spoken lines are cached so Sarvam credits are not spent twice on the same sentence.
+- **Database:** not for Round 2 (see `docs/NEXT-SPRINT.md` section 5).
+
+## Translation decisions (28 Nov)
+- **Translator: Sarvam (`mayura:v1`).** Google and Azure need a billing account with a card; Sarvam uses the key we
+  already have (balance ₹958 on 28 Nov, about ₹20 per 10,000 characters).
+- **English before the AI, but the original is kept.** Live test: "2 nahi, 3 kar do" → "Don't, do 3"; "kal ka khana
+  thanda tha" → "the food for the day was cold". So the AI sees both and trusts the original.
+- **Fixed replies are not translated live.** They are already written in all three languages.
+- **Free text between people is translated:** customer question → cook's language; cook's answer → customer's
+  language, always sent together with her own words and marked auto-translated ("नहीं, कल मिलेगा" came back as
+  "No, I will meet you tomorrow").
+
+## Simpler screens (28 Nov)
+- **Kitchen, Chat and Owner.** Start moved into Kitchen (a big Start button; language only on first use).
+  The simulated WhatsApp chat stays visible: it is how customer messages reach the kitchen in this prototype.
+- **No "Demo" tags or service names (Groq, Sarvam) on screen.** The cook doesn't care. Demo tools sit behind
+  `?demo=1` and the demo is explained in `DEMO.md`; simulated parts are listed in README and DEMO.md.
+- **Today's menu is tap-to-switch on the Owner screen,** and the app asks for it by voice at opening time.
+  Customers asking "dal hai aaj?" or "kanda bhaji milega?" get the answer from today's menu without disturbing
+  the cook. A dish the kitchen never makes (paneer) still goes to the owner, as the spec says.
+- **No separate profile page.** Opening hours and language live on the Owner screen.
+- **Metrics card: later** (see `docs/NEXT-SPRINT.md` section 6).
+
+## Menu rows and "saved today" (28 Nov)
+- **Owner edits the menu as rows:** item, price, available quantity (empty = no limit, 0 = not today), add and remove.
+  These rows are the only source for every menu answer on WhatsApp.
+- **Menu questions never reach the cook.** "menu dikhaiye" gets the full menu. "paneer hai aaj?" gets a yes or no first
+  (with price and how many are left), then the full menu. This replaces the spec's "paneer → owner queue" check
+  (Sohan's call). Questions the menu can't answer (delivery, discounts) still go to the owner.
+- **The reply text is built from the rows by rules, not written by the LLM,** so a price or dish can never be made up.
+  The LLM only tells which dishes were asked about, including ones not on the menu.
+- **"Saved today" on the Kitchen screen, under the mic,** with today's numbers (active, confirmed, waiting).
+  Counts are real; minutes are an estimate (60 s per message answered, 20 s per action done by voice).

@@ -20,13 +20,21 @@ and small business) by team **SayLess**.
 docker compose up --build
 ```
 
-Open **http://localhost:8080** in **Chrome**, tap the big mic button (**Tap to Start Kitchen**) and allow the microphone.
+Open **http://localhost:8080/?demo=1** in **Chrome**, pick a language (**English, हिन्दी or मराठी**), tap
+**Start kitchen** and allow the microphone. `?demo=1` adds the demo tools (a typing
+box, AI labels); without it you see only what the cook sees. Step-by-step demo guide: [DEMO.md](DEMO.md).
 
-Optional: speech through the Wispr Flow API instead of the browser's own speech recognition:
+Optional keys make each part better. Copy `.env.example` to `.env` and fill in any of them
+(`.env` is never committed and never copied into the Docker image):
 
-```bash
-WISPR_API_KEY=your_key docker compose up --build
-```
+| Key | What it switches on | Without it |
+|---|---|---|
+| `WISPR_API_KEY` | Speech in through Wispr Flow | Groq Whisper if `GROQ_API_KEY` is set, else the browser's recognition |
+| `GROQ_API_KEY` | An AI model sorts each message into a type; Groq Whisper speech in | Word rules only |
+| `SARVAM_API_KEY` | Natural Hindi, Marathi and English voice (Sarvam Bulbul) and translation (Sarvam Mayura) | The browser's built-in voice; no translation |
+
+The Start screen shows which ones are on. If a service fails or hits its rate limit, the app says so
+and falls back to the no-key path; it never stops.
 
 Without Docker (Node 22):
 
@@ -36,22 +44,29 @@ npm run build
 npm start            # http://localhost:8080
 ```
 
-Tests: `npm test` (33 tests).
+Tests: `npm test` (50 tests).
 
 ---
 
 ## Try the core flow (2 minutes)
 
-The app has four tabs at the bottom: **Start**, **Kitchen Live**, **Chat** (a simulated WhatsApp chat) and **Owner**.
+The cook sees two screens: **Kitchen** (orders read aloud, big Yes / No / Later buttons, what to cook next)
+and **Owner** (today's numbers, owner questions, today's menu on/off, opening hours, language).
+A third tab, **Chat**, simulates the customers' WhatsApp.
 
-1. In **Chat** (as Sharma ji), send `2 thali 1 baje`, then open **Kitchen Live**.
-2. Nirhast says: **"Sharma ji, 2 thali, 1 baje. Haan?"**, followed by a chime. It then listens for 6 seconds.
-3. Say **"2 nahi, 3"**. It reads back **"Sharma ji, 3 thali, 1 baje. Haan?"**
-4. Say **"haan"**. The order is saved and only then does the customer get *"Order confirmed: 3 thali, 1 baje tak."*
-5. Mumble something unclear three times. Nirhast says **"Phir boliye"**, then **"Haan ya nahi boliye"**,
-   then shows big **Haan / Nahi** buttons.
+1. In **Chat** (as Sharma ji), send `2 thali 1 baje`, then open **Kitchen**.
+2. Nirhast says: **"Sharma ji, 2 thali, 1 pm. Yes?"** (in Hindi: "Sharma जी, 2 थाली, दोपहर 1 बजे. हाँ?"),
+   followed by a chime. It then listens for 6 seconds.
+3. Say **"2 nahi, 3"**. It reads back **"Sharma ji, 3 thali, 1 pm. Yes?"**
+4. Say **"haan"**. The order is saved and only then does the customer get *"Order confirmed: 3 thali, by 1 pm."*
+5. Mumble something unclear three times. Nirhast says **"Please say that again"**, then **"Please say yes
+   or no"**, then shows big **Yes / No** buttons.
 
-No mic? Every step also works by typing in **"Type what the cook says"** (labelled DEMO), or by
+With `GROQ_API_KEY` set, loose wording works too: a customer can write *"bhaiya 3 lunch box bhej dena
+dedh baje tak"* and the cook can say *"chalo theek hai bana denge"*. The Kitchen screen shows the AI's
+label next to what it heard (for example **AI: yes**).
+
+No mic? With `?demo=1`, every step also works by typing in **"Demo: type what the cook says"**, or by
 tapping the chips.
 
 More to try:
@@ -59,21 +74,23 @@ More to try:
 | Say / send | What happens |
 |---|---|
 | Customer: `Hi` | Menu reply from the owner's data; regulars are offered their usual order |
-| Customer: `paneer hai aaj?` | Not on today's menu, so it goes to the owner queue. Nirhast asks the cook, reads back her answer ("Bhej doon?"), then sends it |
+| Customer: `paneer hai aaj?` / `dal hai aaj?` | Answered from the owner's menu rows: yes or no first (price, how many left), then the full menu. The cook is not disturbed |
+| Customer: `menu dikhaiye` | The full menu from the owner's rows |
+| Customer: `kal delivery jaldi ho sakti hai?` | The menu can't answer it, so it goes to the owner queue. Nirhast asks the cook, reads back her answer, then sends it |
+| Customer (AI on): a complaint, payment question or special request | Goes straight to the owner queue, tagged by type |
 | Customer (Khan ji): `2 thali 1 baje` | No saved address, so the customer is asked for it, and it is remembered |
 | Customer: `usual 1 baje` | The regular's usual order |
 | Customer, after confirming: `3 thali kar do` | Treated as a change, read to the cook again |
 | Cook: `baad mein` | Asked again in 5 minutes |
-| Cook: `ab kya banaun?` | "Pehle Sharma ji, 1 baje. 7 thali ek saath." (earliest time first, then smaller orders, same dish grouped) |
+| Cook: `ab kya banaun?` | "First Sharma ji, 1 pm. 7 thali together." (earliest time first, then smaller orders, same dish grouped) |
 | Cook: `aaj kitne thali?` | Prep count, including notes like "bina pyaaz" |
-| Cook: `abhi mat bolo` | "10 minute?" Quiet mode: only late-order alerts interrupt |
+| Cook: `abhi mat bolo` | "10 minutes?" Quiet mode: only late-order alerts interrupt. `abhi mat bolo 5 minute` sets 5 minutes directly |
 | Cook: `galat, wapas` (within 15 s) | Undo; if the customer was already told, they get a correction |
 | Delivery person: `Sharma delivered` | "Noted." |
-| Helper: `Sharma ka order cancel karo` | "Yeh sirf owner kar sakti hain." The owner must repeat a random phrase shown on screen |
-| Big order (Gupta ji usually orders 1): `10 thali 1 baje` | Extra check: "10 thali? Sach mein?" |
+| Helper: `Sharma ka order cancel karo` | "Only the owner can do this." The owner must repeat a random phrase shown on screen |
+| Big order (Gupta ji usually orders 1): `10 thali 1 baje` | Extra check: "10 thalis? Really?" |
 
-The **+5 min (DEMO)** button moves the kitchen clock forward, so you can see snoozes, quiet mode,
-late alerts and the closing warning without waiting.
+Snoozes, quiet mode, late alerts and the closing warning run on the real clock, so you have to wait to see them.
 
 ---
 
@@ -84,11 +101,12 @@ Customer chat (simulated WhatsApp)          Kitchen (voice)
         │                                        ▲   │
         ▼                                        │   ▼
   customerBot.js  ── complete orders ──▶  kitchen.js (rules)  ◀── text ── speech in
-  answers from owner data,                 ranking, timers,               (Wispr Flow API or
-  asks for missing details,                retries, owner checks,          browser recognition)
+  answers from owner data,                 ranking, timers,               (Wispr Flow, Groq Whisper
+  asks for missing details,                retries, owner checks,          or browser recognition)
   owner-only questions -> queue            undo, quiet mode
-                                                 │
-                                                 └── lines ──▶ speech out (browser voice) + large cards
+        ▲                                        ▲      │
+        └──── type label (optional AI: Groq) ────┘      └── lines (en/hi/mr) ──▶ speech out (Sarvam or
+                                                                                 browser voice) + large cards
 ```
 
 - **Rules decide, speech only transcribes.** Every decision (what counts as yes, the error ladder,
@@ -97,41 +115,62 @@ Customer chat (simulated WhatsApp)          Kitchen (voice)
 - **Mixed Hindi, Marathi and English.** Word lists cover Roman and Devanagari script
   ("haan" / "हाँ" / "ho" / "होय", "nahi" / "nako" / "नहीं"). Numbers work as digits, words or
   Devanagari (5 = paanch = पांच = ५). Times are understood as tiffin times ("1 baje" = 1 pm).
-- **Numbers are spoken as words and shown as digits** ("teen", 3).
+- **The AI only labels.** With a Groq key, each message gets one type (yes, no, change number,
+  quiet, new order, complaint, ...). `src/core/intents.js` turns the type into the plain words the
+  rules already understand, so the same tested rules still decide. Low confidence, unknown names or
+  dishes, and odd numbers fall back to the raw words. The owner phrase check and free-text answers
+  always use exactly what was said. Replies are fixed sentences, never AI-written. The prompt is in
+  `server/ai.js` (`buildSortPrompt`).
+- **Translation (Sarvam, when its key is set).** Before sorting, the message is translated to English
+  and the AI sees **both** the original and the English; if they disagree, the original wins (a short
+  reply like "2 nahi, 3" can come back as "Don't, do 3"). A customer question is translated into the
+  cook's language before it is read out. The cook's answer is sent to the customer as **her own words
+  plus the translation, marked auto-translated**, never the translation alone. Translations are cached.
+  `TRANSLATE_BEFORE_SORT=false` switches off the English-first step.
+- **One language for the app, English first.** Every screen label and every spoken or sent line is
+  written in English and translated to Hindi and Marathi (`src/ui/uiText.js`, `src/core/i18n.js`).
+  The cook picks the language on the Start screen. Customer replies follow the customer's own
+  language when the AI detects it, otherwise the app language.
 - **Save first, then confirm.** The customer is told only after the order is stored. Nothing fails silently.
 
 ### Speech in
 
 | Mode | When | Notes |
 |---|---|---|
-| **Wispr Flow API** | `WISPR_API_KEY` set on the server | The browser records 16 kHz WAV segments using a simple voice-activity detector. A reply ends after 1 s of silence, or 2 s when a number or correction is expected. The server adds the key and calls `POST /api/v1/dash/api` with `language: ["hi","mr","en"]` and the menu and customer names as `dictionary_context`. The key never reaches the browser. |
-| **Browser speech recognition** | No key (default) | Chrome's built-in recognition (`hi-IN`). Labelled **DEMO** in the app. The browser decides when a phrase ends. |
-| **Typing** | Always available | Labelled **DEMO**, for testing without a mic. |
+| **Wispr Flow API** | `WISPR_API_KEY` set on the server | The browser records 16 kHz WAV segments using a simple voice-activity detector. A reply ends after 1 s of silence, or 2 s when a number or correction is expected. The server adds the key and calls `POST /api/v1/dash/api` with the chosen language first and the menu and customer names as `dictionary_context`. The key never reaches the browser. |
+| **Groq Whisper** | `GROQ_API_KEY` set, no Wispr key | Same recorder; the server sends the WAV to Groq's `whisper-large-v3` with the chosen language and the menu and customer names as a spelling hint. |
+| **Browser speech recognition** | No key (default) | Chrome's built-in recognition in the chosen language (`en-IN`, `hi-IN` or `mr-IN`). The browser decides when a phrase ends. |
+| **Typing** | With `?demo=1` | For testing without a mic. |
 
-Speech out uses the browser's built-in voice (Hindi where available). A soft chime marks the start
-of each listening window.
+Speech out uses Sarvam (`bulbul:v3`, voice `priya`) when `SARVAM_API_KEY` is set; the same line is
+never paid for twice. Otherwise the browser's built-in voice in the chosen language. A soft chime marks
+the start of each listening window.
 
 ---
 
 ## What is real and what is demo
 
-Clearly labelled **DEMO** in the app:
+The cook's screens carry no demo labels (team decision: the cook is busy, the screen stays simple).
+What is simulated is listed here and in [DEMO.md](DEMO.md), and the demo tools only appear with `?demo=1`:
 
 - **WhatsApp is simulated.** It is one module (`customerBot.js` input/output), replaceable by the
   WhatsApp Business Cloud API, which needs Meta's approval to link a kitchen's own number.
-- **"Speaking as" switch** instead of voice profiles (recognising the speaker by voice is a later step).
+- **"Speaking as" switch** (Owner screen, `?demo=1`) instead of voice profiles (recognising the speaker by voice is a later step).
 - **Random-phrase owner check** for cancel, refund and price change.
 - **Data stays in this browser** (localStorage). There is no sync.
-- **The +5 min clock button.**
 
 Honest limits:
 
-- **Understanding uses word rules, not an AI model,** so the app runs with no secret keys. It handles
-  the listed examples and their variants. Unfamiliar phrasings get "Phir boliye" rather than a guess.
+- **Without a Groq key, understanding uses word rules only.** They handle the listed examples and
+  their variants. Unfamiliar phrasings get "Please say that again" rather than a guess. With the key,
+  free-tier rate limits apply; when hit, the app says so and uses the word rules.
 - **Half-duplex.** Nirhast does not listen while it speaks, so it never hears itself. To interrupt it, use
   the **Ruko** button, or say "ruko" once it has finished.
-- **The Wispr Flow path is built to the published API but was not tested with a live key** during
-  development. The browser path and all the rules are tested.
+- **The Wispr Flow path is built to the published API but was not tested with a live key** (Wispr
+  API access needs approval). Groq sorting and Sarvam voice were tested with live keys; Groq Whisper
+  speech in was built to Groq's API but not yet tested with a real microphone.
+- **Hindi and Marathi translations** are machine-written and still need a check by a
+  native speaker.
 - Payments, delivery routing and customer logins are out of scope.
 
 ---
@@ -140,13 +179,16 @@ Honest limits:
 
 ```
 src/core/text.js          yes/no/unclear rules, numbers (Hindi/Marathi/English/Devanagari), times
+src/core/i18n.js          every spoken or sent line in English, Hindi and Marathi; times and dish names
+src/core/intents.js       turns an AI type label into words the rules understand (with safety checks)
 src/core/customerBot.js   customer messages: menu, prices, timings, orders, missing details, owner queue
 src/core/kitchen.js       the voice dialog: confirm, correct, ladder, undo, quiet mode, alerts, owner checks
 src/core/store.js         joins customer side and kitchen side
-src/speech/               Wispr Flow recorder + WAV encoder, browser recognition, text-to-speech, chime
-src/ui/                   React screens (kitchen, customer chat, owner)
-server/index.js           serves the app; forwards audio to Wispr Flow only if WISPR_API_KEY is set
-tests/                    33 tests, including every "done when" check from our build prompt
+src/speech/               audio recorder + WAV encoder, browser recognition, Sarvam/browser voice, chime
+src/ui/                   React screens (start, kitchen, customer chat, owner); uiText.js = screen text
+server/index.js           serves the app; calls Wispr Flow, Groq and Sarvam only if their keys are set
+server/ai.js              the sorting prompt and the Groq / Sarvam calls
+tests/                    50 tests, including every "done when" check from our build prompt
 ```
 
 ## Tests
@@ -162,8 +204,12 @@ tests/                    33 tests, including every "done when" check from our b
 - A helper cannot cancel.
 
 It also covers corrections, snooze, undo, ranking, prep count, duplicates, changes after
-confirmation, the closing warning and the WAV format sent to Wispr Flow.
+confirmation, the closing warning, the WAV format, every translation key in all three languages,
+and AI labels going through the same rules (including "low confidence is never a yes").
 
 ## License
 
 MIT
+
+Sounds in `public/sounds/`: `mic_on.wav` and `mic_off.wav` were made by the team in code;
+`notification_sound.mp3` and `complete_sound.mp3` are from Pixabay (Pixabay Content License).
