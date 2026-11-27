@@ -63,7 +63,7 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
   Content and features come from the spec, not the Figma.
 - **Brand:** lavender `#B6AAF2` + black `#000000` on off-white `#FAF9F6`, white rounded cards, pill buttons.
   Status colours: ochre `#C98525` (waiting), green `#16A34A` (confirmed), red `#BA1A1A` only for no, stop and alerts.
-  Fonts: Plus Jakarta Sans, with Hind as fallback for Devanagari. Logo: maroon mark on lavender, `public/logo.png`
+  Fonts: Plus Jakarta Sans, with Hind as fallback for Devanagari. Logo: lavender mark (slightly darkened), `public/logo-lavender.png`
   and `public/favicon.png` (made from a screenshot; replace with the original file for print or the deck).
 - **Chat screen** uses a familiar WhatsApp-style chat layout (green header, beige background, green bubbles),
   as Sohan asked, but no WhatsApp logo or name as branding.
@@ -86,7 +86,7 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
   feedback types in the AI prompt + 1–5 rating after delivery (`docs/ANALYTICS-PLAN.md`).
   Also: review "What should I cook next?" with Sohan, then make it always visible on Kitchen
   ("No confirmed orders yet" when empty).
-- **28 Nov:** real-mic test (Chrome, laptop + phone); real WhatsApp (Meta test number, up to 5 phones); **role-play as
+- **28 Nov:** real-mic test (Chrome, laptop + phone); **hearing better in a noisy kitchen** (test with kitchen noise playing, see docs/NEXT-SPRINT.md section 8); real WhatsApp (Meta test number, up to 5 phones); **role-play as
   the cook** through a full lunch rush to find latent needs (note every friction, then fix the small ones).
 - **29 Nov:** 3-minute demo video + pitch deck. **30 Nov:** buffer only, no new features.
 - **2–13 Dec (if shortlisted):** next-sprint voice features (`docs/NEXT-SPRINT.md`).

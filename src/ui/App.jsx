@@ -44,7 +44,7 @@ export default function App() {
       <header className="topbar">
         {tab !== 'kitchen'
           ? <button className="top-back" onClick={goBack} aria-label={t('back')}><ChevronLeftIcon size={22} /><span>{t(TABS.find(([id]) => id === tab)[1])}</span></button>
-          : <div className="brand"><img className="logo" src="./logo.png" alt="" width="36" height="36" /><span className="brand-name">Nirhast</span></div>}
+          : <div className="brand"><img className="logo-mark" src="./logo-lavender.png" alt="" width="26" height="26" /><span className="brand-name">Nirhast</span></div>}
         <button className={`avatar ${tab === 'owner' ? 'on' : ''}`} onClick={() => setTab('owner')} aria-label={t('tabOwner')}>
           <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="16" r="8.5" /><path d="M0 46c1-11 9-17 20-17s19 6 20 17z" /></svg>
         </button>
