@@ -6,7 +6,13 @@ const DAY = 24 * 3600 * 1000;
 const BOOKED = ['awaiting', 'pending', 'confirmed', 'delivered'];
 const thaliOf = (o) => o.items.filter((i) => i.itemId === 'thali').reduce((s, i) => s + (i.qty || 0), 0);
 
-export const SLOTS = (() => { const out = []; for (let h = 11; h <= 21; h++) for (const m of [0, 30]) out.push({ hour: h, minute: m }); return out; })();
+// Every half hour from opening to closing (the whole kitchen day, even empty ones).
+export function slotsFor(hours = { open: { hour: 11, minute: 0 }, close: { hour: 21, minute: 30 } }) {
+  const out = [];
+  for (let m = hours.open.hour * 60 + (hours.open.minute >= 30 ? 30 : 0); m <= hours.close.hour * 60 + (hours.close.minute || 0); m += 30) out.push({ hour: Math.floor(m / 60), minute: m % 60 });
+  return out;
+}
+export const SLOTS = slotsFor();
 const slotKey = (p) => `${p.hour}:${p.minute >= 30 ? 30 : 0}`;
 
 // Today's orders from the live state, in the same shape as history rows.
@@ -29,10 +35,10 @@ export function buildAnalytics(history, state, now) {
   const count = (rows) => { const m = {}; for (const o of rows) if (o.promised) m[slotKey(o.promised)] = (m[slotKey(o.promised)] || 0) + thaliOf(o); return m; };
   const todayC = count(days.get(todayKey) || []);
   const typC = sameDays.map((d) => count(days.get(d)));
-  const slots = SLOTS.map((s) => {
+  const slots = slotsFor(state.hours).map((s) => {
     const k = slotKey(s);
     return { ...s, today: todayC[k] || 0, typical: typC.length ? Math.round(typC.reduce((a, c) => a + (c[k] || 0), 0) / typC.length * 10) / 10 : 0 };
-  }).filter((s) => s.today || s.typical);
+  });
 
   // Last 28 days: thalis per day
   const perDay = [];

@@ -128,3 +128,8 @@ Voice design rules with research behind them: `docs/hackathon/voice-design-rules
   was removed at Sohan's request.
 - **Feedback stays in scope:** the AI prompt says feedback about food, delivery, price or service is never off-topic;
   complaints are trusted at lower confidence (better to over-escalate); messages can't give the AI instructions.
+
+## Kitchen redesign dropped (28 Nov)
+- A dark "kitchen display" redesign (voice stage, tickets) was built and **rejected by Sohan**. The previous design stays.
+  Only an orb was kept: the React Bits orb behind the existing black mic buttons (`OrbHalo` in `src/ui/App.jsx`), edited so it stays light and see-through on white (it rendered grey before; 2 marked shader lines in `src/ui/vendor/reactbits/Orb.jsx`).
+- Lesson: when Sohan asks for one element, add only that element. No wider redesign without agreeing it first.

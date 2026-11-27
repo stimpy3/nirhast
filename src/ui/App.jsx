@@ -4,11 +4,11 @@ import { makeT } from './uiText.js';
 import { LANGS, itemsText, timeLabel } from '../core/i18n.js';
 import { savedToday } from '../core/metrics.js';
 import AnalyticsScreen from './Analytics.jsx';
-import { leftOf } from '../core/menu.js';
+import Orb from './vendor/reactbits/Orb.jsx';
 import {
   MicIcon, MicOffIcon, StopIcon, ClockIcon, HomeIcon, ChatIcon, StoreIcon, SlidersIcon, UtensilsIcon,
-  ArrowRightIcon, SendIcon, DoubleCheckIcon, EarIcon, HistoryIcon, QuestionIcon, MoreIcon, ArrowLeftIcon, CheckIcon,
-  XIcon, PlusIcon, ChartIcon,
+  ArrowRightIcon, SendIcon, DoubleCheckIcon, EarIcon, HistoryIcon, QuestionIcon, MoreIcon, ArrowLeftIcon, ChevronLeftIcon, CheckIcon,
+  XIcon, PlusIcon, ChartIcon, PauseIcon, BoltIcon,
 } from './icons.jsx';
 
 // Demo tools (typing box, simulated customer chat, AI labels, "speaking as", log, reset) only show with ?demo=1.
@@ -18,7 +18,7 @@ const COOK_PHRASES = ['haan', 'nahi', '2 nahi, 3', 'baad mein', 'ab kya banaun?'
 const CUSTOMER_PHRASES = ['Hi', '2 thali 1 baje', 'dal hai aaj?', 'paneer hai aaj?', 'usual 1 baje', '3 thali kar do'];
 // Chat = the simulated customer WhatsApp. Always shown: it is how customers' messages reach the kitchen in this prototype.
 // Chat stands in for WhatsApp until the real connection exists; then the app has 3 pages.
-const TABS = [['kitchen', 'tabKitchen', HomeIcon], ['chat', 'tabChat', ChatIcon], ['analytics', 'tabAnalytics', ChartIcon], ['owner', 'tabOwner', StoreIcon]];
+const TABS = [['kitchen', 'tabKitchen', HomeIcon], ['chat', 'tabChat', ChatIcon], ['analytics', 'tabAnalytics', ChartIcon], ['owner', 'tabOwner', SlidersIcon]];
 const ACTIVE = ['awaiting', 'pending', 'confirmed'];
 
 function timeOf(ms) {
@@ -32,24 +32,27 @@ export default function App() {
   const n = useNirhast();
   const lang = n.state.lang;
   const t = useMemo(() => makeT(lang), [lang]);
-  const [tab, setTab] = useState('kitchen');
+  const [tab, setTabRaw] = useState('kitchen');
+  const prevTabs = useRef([]); // pages visited, for the back chevron
+  const setTab = (next) => setTabRaw((cur) => { if (cur !== next) prevTabs.current = [...prevTabs.current, cur].slice(-10); return next; });
+  const goBack = () => setTabRaw(() => prevTabs.current.pop() || 'kitchen');
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useEffect(() => { window.scrollTo(0, 0); }, [tab]);
 
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <img className="logo" src="./logo.png" alt="" width="36" height="36" />
-          <span className="brand-name">Nirhast</span>
-        </div>
-        <div className="top-right">
-          <span className="pill pill-clock"><ClockIcon size={14} />{timeOf(n.now)}</span>
-        </div>
+        {tab !== 'kitchen'
+          ? <button className="top-back" onClick={goBack} aria-label={t('back')}><ChevronLeftIcon size={22} /><span>{t(TABS.find(([id]) => id === tab)[1])}</span></button>
+          : <div className="brand"><img className="logo" src="./logo.png" alt="" width="36" height="36" /><span className="brand-name">Nirhast</span></div>}
+        <button className={`avatar ${tab === 'owner' ? 'on' : ''}`} onClick={() => setTab('owner')} aria-label={t('tabOwner')}>
+          <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="16" r="8.5" /><path d="M0 46c1-11 9-17 20-17s19 6 20 17z" /></svg>
+        </button>
       </header>
 
       <main>
         {tab === 'kitchen' && <KitchenScreen n={n} t={t} goAnalytics={() => setTab('analytics')} />}
-        {tab === 'analytics' && <AnalyticsScreen n={n} t={t} />}
+        {tab === 'analytics' && <AnalyticsScreen n={n} t={t} TodayCard={TodayCard} />}
         {tab === 'chat' && <ChatScreen n={n} t={t} />}
         {tab === 'owner' && <OwnerScreen n={n} t={t} />}
       </main>
@@ -65,20 +68,92 @@ export default function App() {
   );
 }
 
+// Language picker: one card per language with a sample of its script, the name in that script, and in English.
+// Selected = light lavender card, lavender script sample, filled check circle. Others = white card, empty circle.
+const SCRIPT_SAMPLE = { en: 'Aa', hi: 'अआ', mr: 'ळ' };
 function LanguagePicker({ n, t }) {
   return (
-    <div className="lang-pick" role="radiogroup" aria-label={t('chooseLang')}>
+    <div className="lang-cards" role="radiogroup" aria-label={t('chooseLang')}>
       {LANGS.map((l) => {
         const on = n.state.lang === l.id;
         return (
-          <button key={l.id} role="radio" aria-checked={on} lang={l.id} className={`lang-opt ${on ? 'on' : ''}`} onClick={() => n.setLang(l.id)}>
-            <b>{l.native}</b>
-            {on && <CheckIcon size={18} />}
+          <button key={l.id} role="radio" aria-checked={on} className={`lang-card ${on ? 'on' : ''}`} onClick={() => n.setLang(l.id)}>
+            <span className="lc-check" aria-hidden="true">{on && <CheckIcon size={13} />}</span>
+            <span className="lc-sample" lang={l.id}>{SCRIPT_SAMPLE[l.id]}</span>
+            <span className="lc-name" lang={l.id}>{l.native}</span>
+            <span className="lc-sub">{l.id === 'en' ? ' ' : l.label}</span>
           </button>
         );
       })}
     </div>
   );
+}
+
+// The React Bits orb (edited to stay light on white) behind the mic button, over a soft lavender glow:
+// slow when idle, livelier while listening and speaking, faint when the mic is off.
+const REDUCED_MOTION = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const ORB_LOOK = {
+  idle: { speed: 0.5, opacity: 0.7, force: false },
+  listening: { speed: 1, opacity: 0.85, force: true },
+  speaking: { speed: 1.7, opacity: 1, force: true },
+};
+function OrbHalo({ size, mic, children }) {
+  const look = ORB_LOOK[mic] || { speed: 0.25, opacity: 0.35, force: false };
+  return (
+    <div className={`orb-halo is-${mic}`} style={{ width: size, height: size }}>
+      <span className="orb-glow" aria-hidden="true" />
+      {!REDUCED_MOTION && (
+        <Orb colors={['#B6AAF2', '#9C8FE8', '#D9D2FA']} backgroundColor="#FFFFFF" size={0.95} glow={2.2} speed={look.speed}
+          opacity={look.opacity} forceHoverState={look.force} followCursor={false} rotateOnHover={false} clickPulse={false} />
+      )}
+      {children}
+    </div>
+  );
+}
+
+// Live dictation waveform: bars scroll from right to left and grow with the cook's voice (like voice dictation apps).
+// While Nirhast speaks the bars move gently on their own; when the mic is off they lie flat.
+function LiveWave({ levelRef, mode }) {
+  const canvasRef = useRef(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const BAR = 3; const GAP = 3;
+    let bars = [];
+    let raf = 0; let last = 0; let t = 0;
+    const draw = (now) => {
+      raf = requestAnimationFrame(draw);
+      if (now - last < 50) return; // ~20 new bars a second
+      last = now; t += 1;
+      const w = canvas.clientWidth; const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+      const count = Math.floor(w / (BAR + GAP));
+      const m = modeRef.current;
+      const level = m === 'listening' ? (levelRef?.current || 0)
+        : m === 'speaking' ? 0.25 + 0.2 * Math.abs(Math.sin(t / 3)) * Math.random() : 0;
+      bars.push(level);
+      if (bars.length > count) bars = bars.slice(-count);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = m === 'listening' || m === 'speaking' ? '#000' : '#C9C6D3';
+      const offset = (w - count * (BAR + GAP) + GAP) / 2; // centre the row
+      for (let i = 0; i < count; i++) {
+        const v = i >= count - bars.length ? bars[i - (count - bars.length)] : 0; // newest bars on the right
+        const bh = Math.max(3, Math.min(h, 3 + v * (h - 3)));
+        const x = offset + i * (BAR + GAP);
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(x, (h - bh) / 2, BAR, bh, 1.5) : ctx.rect(x, (h - bh) / 2, BAR, bh);
+        ctx.fill();
+      }
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [levelRef]);
+  return <canvas ref={canvasRef} className="live-wave" aria-hidden="true" />;
 }
 
 // ---------------- Kitchen ----------------
@@ -100,14 +175,14 @@ function KitchenScreen({ n, t, goAnalytics }) {
     return (
       <div className="screen">
         {(
-          <section className="card">
+          <section className="k-plain">
             <h2 className="card-title" style={{ marginBottom: 12 }}>{t('chooseLang')}</h2>
             <LanguagePicker n={n} t={t} />
           </section>
         )}
-        <section className="card start-hero">
-          <button className="big-mic" onClick={n.start} aria-label={t('tapStart')}><MicIcon size={40} /></button>
-          <p className="big-mic-label">{t('tapStart')}</p>
+        <section className="start-hero k-open">
+          <OrbHalo size={230} mic="idle"><button className="big-mic" onClick={n.start} aria-label={t('tapStart')}><MicIcon size={40} /></button></OrbHalo>
+          <button className="cta-primary" onClick={n.start}><MicIcon size={20} />{t('tapStart')}</button>
           <p className="muted small">{t('startShort')}</p>
         </section>
         <TodayCard state={state} now={n.now} t={t} />
@@ -143,17 +218,25 @@ function KitchenScreen({ n, t, goAnalytics }) {
 
   return (
     <div className="screen">
-      <section className="card mic-card" aria-live="polite">
+      <section className="mic-card k-open" aria-live="polite">
         <div className="listen-bar">{n.listening && <span key={n.line?.text} className="shrink" />}</div>
-        <div className="mic-row">
-          <div className={`mic-orb ${micCls}`}>{n.mic === 'error' ? <MicOffIcon size={28} /> : <MicIcon size={28} />}</div>
+        <div className={`mic-row dictation ${n.mic}`}>
           <div className="mic-text">
-            <div className="mic-state">{n.mic === 'listening' && !quiet && <span className="dot live" />}{micLabel}</div>
-            <div className="mic-sub">{micSub}<span className={`wave ${n.mic === 'listening' && !quiet ? 'on' : ''}`}><i /><i /><i /><i /></span></div>
+            <div className="mic-state">{n.mic === 'listening' && !quiet && <span className="dot live" />}{micLabel}<span className="mic-sub-inline">{micSub}</span></div>
+            <LiveWave levelRef={n.levelRef} mode={quiet ? 'off' : n.mic} />
+            {(n.interim || n.heard?.text) && (
+              <div className="hearing live-heard">
+                <EarIcon size={16} />
+                <span>{t('heard')}</span>
+                {n.interim ? <em>{n.interim}…</em> : <b>‘{n.heard.text}’</b>}
+                {DEMO && n.heard?.label && <span className="tag lav">AI: {n.heard.label.type.replace('_', ' ')}</span>}
+                {n.heard?.status === 'saved' && <span className="saved">{t('toSaved')}</span>}
+              </div>
+            )}
           </div>
           {n.micOff
-            ? <button className="ruko listen" onClick={n.micListen} aria-label={t('listenAria')}><MicIcon size={20} />{t('listenBtn')}</button>
-            : <button className="ruko" onClick={n.micStop} aria-label={t('stopAria')}><StopIcon size={20} />{t('stopBtn')}</button>}
+            ? <button className="round-btn" onClick={n.micListen} aria-label={t('listenAria')}><MicIcon size={22} /></button>
+            : <button className="round-btn" onClick={n.micStop} aria-label={t('stopAria')}><PauseIcon size={22} /></button>}
         </div>
         {(quiet || state.ordersPaused) && (
           <div className="chips" style={{ padding: '0 16px 14px' }}>
@@ -178,15 +261,6 @@ function KitchenScreen({ n, t, goAnalytics }) {
         {n.line?.text
           ? <p className="hero-line">“{n.line.text}”</p>
           : <p className="hero-line idle">{t('idleLine')}</p>}
-        {(n.interim || n.heard?.text) && (
-          <div className="hearing">
-            <EarIcon size={16} />
-            <span>{t('heard')}</span>
-            {n.interim ? <em>{n.interim}…</em> : <b>‘{n.heard.text}’</b>}
-            {DEMO && n.heard?.label && <span className="tag lav">AI: {n.heard.label.type.replace('_', ' ')}</span>}
-            {n.heard?.status === 'saved' && <span className="saved">{t('toSaved')}</span>}
-          </div>
-        )}
       </section>
 
       {dialog?.kind === 'phrase' && n.phrase && (
@@ -196,9 +270,9 @@ function KitchenScreen({ n, t, goAnalytics }) {
       {yesNo && (
         <div className="answers">
           <button className="answer yes" onClick={() => (dialogOrder ? n.press(dialogOrder.id, 'yes') : tap('haan'))}><b>{t('yes')}</b></button>
-          <button className="answer" onClick={() => (dialogOrder ? n.press(dialogOrder.id, 'no') : tap('nahi'))}><b>{t('no')}</b></button>
+          <button className="answer no" onClick={() => (dialogOrder ? n.press(dialogOrder.id, 'no') : tap('nahi'))}><b>{t('no')}</b></button>
           {dialogOrder
-            ? <button className="answer" onClick={() => tap('baad mein')}><b>{t('later')}</b><small>{t('fiveMin')}</small></button>
+            ? <button className="answer later" onClick={() => tap('baad mein')}><b>{t('later')}</b><small>{t('fiveMin')}</small></button>
             : <button className="answer" onClick={n.ruko}><b>{t('stop')}</b></button>}
         </div>
       )}
@@ -211,7 +285,7 @@ function KitchenScreen({ n, t, goAnalytics }) {
               <OrderLine state={state} order={o} t={t} />
               <div className="answers">
                 <button className="answer yes" onClick={() => n.press(o.id, 'yes')}><b>{t('yes')}</b></button>
-                <button className="answer" onClick={() => n.press(o.id, 'no')}><b>{t('no')}</b></button>
+                <button className="answer no" onClick={() => n.press(o.id, 'no')}><b>{t('no')}</b></button>
               </div>
             </div>
           ))}
@@ -220,7 +294,7 @@ function KitchenScreen({ n, t, goAnalytics }) {
 
       <NextCard state={state} t={t} onTap={() => tap('ab kya banaun?')} />
 
-      <section className="card">
+      <section className="k-plain">
         <div className="card-head">
           <h2 className="card-title">{t('todaysOrders')}</h2>
           <span className="count">{t('activeDone', { a: activeCount, d: doneCount })}</span>
@@ -230,7 +304,7 @@ function KitchenScreen({ n, t, goAnalytics }) {
         {!dialogOrder && board.length === 0 && <p className="empty">{pending.length ? t('emptyPending') : t('noOrders')}</p>}
       </section>
 
-      <section className="card">
+      <section className="k-plain">
         <h2 className="card-title" style={{ marginBottom: 12 }}>{t('language')}</h2>
         <LanguagePicker n={n} t={t} />
       </section>
@@ -270,7 +344,7 @@ function NextCard({ state, t, onTap }) {
           </>
         ) : <b className="muted">{t('nothingConfirmedTap')}</b>}
       </div>
-      <ArrowRightIcon />
+      <span className="cta-arrow" aria-hidden="true"><ArrowRightIcon size={18} /></span>
     </button>
   );
 }
@@ -279,32 +353,47 @@ function NextCard({ state, t, onTap }) {
 function ForecastCard({ n, t, onMore }) {
   if (!n.forecast) return null;
   return (
-    <button className="card forecast-card" onClick={onMore}>
+    <button className="forecast-card k-plain" onClick={onMore}>
       <span className="tag lav"><ChartIcon size={14} />{t('fcTitle')}</span>
       <b>{n.state.forecastLine || t('forecastNoneUi')}</b>
-      {n.forecast.enough && <span className="muted small">{t('fcSoFar', { n: n.forecast.soFar })} · {t('fcDetails')}</span>}
+      {n.forecast.enough && <span className="muted small">{t('fcSoFar', { n: n.forecast.soFar })}</span>}
+      <span className="cta-link">{t('fcDetails')} <ArrowRightIcon size={15} /></span>
     </button>
   );
 }
 
 // Today at a glance + what voice saved today. Minutes are an estimate (see core/metrics.js).
-function TodayCard({ state, now, t }) {
+export function TodayCard({ state, now, t }) {
   const active = state.orders.filter((o) => ACTIVE.includes(o.status)).length;
   const confirmed = state.orders.filter((o) => o.status === 'confirmed').length;
   const waiting = state.orders.filter((o) => ['awaiting', 'pending'].includes(o.status)).length;
   const saved = savedToday(state, now);
+  const focus = waiting > 0 ? 2 : confirmed > 0 ? 1 : 0; // the stage that matters right now
+  const tiles = [
+    { n: active, label: t('activeOrders'), tag: t('tagToday'), dot: '#B8B4C4' },
+    { n: confirmed, label: t('confirmed'), tag: t('tagToCook'), dot: '#9C8FE8' },
+    { n: waiting, label: t('waitingCook'), tag: t('tagNeedsYou'), dot: '#7058B8' },
+  ];
   return (
-    <section className="card">
-      <div className="stats">
-        <div className="stat"><b>{active}</b><span>{t('activeOrders')}</span></div>
-        <div className="stat"><b>{confirmed}</b><span>{t('confirmed')}</span></div>
-        <div className="stat hl"><b>{waiting}</b><span>{t('waitingCook')}</span></div>
+    <section className="card pipeline">
+      <div className="pl-head">
+        <span className="pl-title">{t('pipeline')}</span>
       </div>
-      <div className="saved-strip">
+      <div className="pl-tiles">
+        {tiles.map((x, i) => (
+          <div key={i} className={`pl-tile ${i === focus && x.n > 0 ? 'on' : ''} ${i === 2 && x.n > 0 ? 'alert' : ''}`}>
+            <b>{x.n}</b>
+            <span className="pl-label">{x.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="pl-bar" aria-hidden="true">{tiles.map((_, i) => <span key={i} className={i === focus ? 'on' : ''} />)}</div>
+      <div className="saved-strip v2">
+        <span className="saved-bolt" aria-hidden="true"><BoltIcon size={16} /></span>
         <div className="saved-main"><b>{t('aboutMin', { m: saved.minutes })}</b><span>{t('savedToday')}</span></div>
-        <div className="saved-sub">
-          <span>{t('answeredForYou', { n: saved.answered })}</span>
-          <span>{t('byVoice', { n: saved.handsFree })}</span>
+        <div className="saved-chips">
+          <span><ChatIcon size={14} /><b>{saved.answered}</b> {t('msgsAnswered')}</span>
+          <span><MicIcon size={14} /><b>{saved.handsFree}</b> {t('doneByVoice')}</span>
         </div>
       </div>
     </section>
@@ -404,7 +493,6 @@ function OwnerScreen({ n, t }) {
 
   return (
     <div className="screen">
-      <TodayCard state={state} now={n.now} t={t} />
 
       <section className="card">
         <h2 className="card-title" style={{ marginBottom: 4 }}>{t('kitchenHours')}</h2>
@@ -430,44 +518,31 @@ function OwnerScreen({ n, t }) {
         </section>
       )}
 
-      <section className="card">
-        <h2 className="card-title" style={{ marginBottom: 4 }}>{t('todaysMenu')}</h2>
-        <p className="card-sub">{t('menuRowsHint')}</p>
+      <section className="menu-plain no-qty">
+        <h2 className="mp-title">{t('todaysMenu')}</h2>
+        <p className="mp-hint">{t('menuRowsHint')}</p>
         <div className="menu-rows" role="table" aria-label={t('todaysMenu')}>
           <div className="menu-row head" role="row">
             <span role="columnheader">{t('colItem')}</span>
             <span role="columnheader">{t('colPrice')}</span>
-            <span role="columnheader">{t('colQty')}</span>
             <span aria-hidden="true" />
           </div>
           {state.menu.map((m) => {
-            const qty = m.today === false ? 0 : (m.stock ?? '');
-            const left = leftOf(state, m);
             const off = m.today === false;
             return (
               <div key={m.id} className={`menu-row ${off ? 'off' : ''}`} role="row">
                 <input aria-label={t('colItem')} value={m.name} placeholder={t('newItem')} onChange={(e) => n.editDish(m.id, { name: e.target.value })} />
-                <input aria-label={t('colPrice')} type="number" inputMode="numeric" min="0" value={m.price}
-                  onChange={(e) => n.editDish(m.id, { price: Math.max(0, parseInt(e.target.value || '0', 10)) })} />
-                <div className="qty">
-                  <input aria-label={t('colQty')} type="number" inputMode="numeric" min="0" value={qty} placeholder="—"
-                    onChange={(e) => n.editDish(m.id, { stock: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10)) })} />
-                  {left !== null && !off && left !== Number(m.stock) && <small>{t('leftN', { n: left })}</small>}
-                  {off && <small>{t('notToday')}</small>}
-                </div>
+                <label className="mp-price"><span aria-hidden="true">₹</span><input aria-label={t('colPrice')} type="number" inputMode="numeric" min="0" value={m.price}
+                  onChange={(e) => n.editDish(m.id, { price: Math.max(0, parseInt(e.target.value || '0', 10)) })} /></label>
                 <button className="row-del" onClick={() => n.removeDish(m.id)} aria-label={`${t('removeItem')} ${m.name}`}><XIcon size={18} /></button>
               </div>
             );
           })}
         </div>
-        <button className="btn-outline add-row" onClick={n.addDish}><PlusIcon size={18} />{t('addItem')}</button>
+        <button className="mp-add" onClick={n.addDish}><PlusIcon size={18} />{t('addItem')}</button>
       </section>
 
 
-      <section className="card">
-        <h2 className="card-title" style={{ marginBottom: 12 }}>{t('language')}</h2>
-        <LanguagePicker n={n} t={t} />
-      </section>
 
       {DEMO && (
         <section className="card">

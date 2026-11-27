@@ -53,7 +53,10 @@ export function useNirhast() {
   const windowRef = useRef(null); // { deadline, expect }
   const lastInterimRef = useRef(0);
   const micBrokenRef = useRef(false); // mic failed: never show "listening" again until restart
-  const micOffRef = useRef(false); // the cook pressed STOP: mic stays off until she presses LISTEN
+  const micOffRef = useRef(false);
+  // Live mic loudness 0..1 for the waveform (read by the screen ~30 times a second; never recorded or sent).
+  const levelRef = useRef(0);
+  const meterRef = useRef(null); // the cook pressed STOP: mic stays off until she presses LISTEN
 
   const tr = useCallback((key, p) => makeT(stateRef.current.lang)(key, p), []);
   const clock = useCallback(() => Date.now(), []);
@@ -99,10 +102,13 @@ export function useNirhast() {
   }, []);
 
   const runEffects = useCallback((effects, cues = []) => {
-    for (const c of cues) queueRef.current.push({ sound: c });
+    // Before the kitchen is started: no voice, no sounds. The line still shows on screen, and the open
+    // question is asked when the cook taps Start.
+    const live = startedRef.current;
+    if (live) for (const c of cues) queueRef.current.push({ sound: c });
     for (const e of effects) {
-      if (e.type === 'say') queueRef.current.push({ text: e.text, kind: e.kind, orderId: e.orderId });
-      else if (e.type === 'listen') pendingListenRef.current = e.expect;
+      if (e.type === 'say') { if (live) queueRef.current.push({ text: e.text, kind: e.kind, orderId: e.orderId }); else setLine({ text: e.text, kind: e.kind, orderId: e.orderId }); }
+      else if (e.type === 'listen') { if (live) pendingListenRef.current = e.expect; }
       else if (e.type === 'stopSpeaking') { queueRef.current = []; stopSpeaking(); }
       else if (e.type === 'showPhrase') setPhrase(e.phrase);
       else if (e.type === 'ignored') setHeard((h) => ({ ...(h || {}), text: e.text, status: 'ignored' }));
@@ -258,6 +264,30 @@ export function useNirhast() {
     if (!speakingRef.current) { recRef.current.resume(); setMic('listening'); }
   }, []);
 
+  // Loudness meter: its own read-only look at the mic, only to draw the waveform.
+  const startMeter = useCallback(async () => {
+    if (meterRef.current || typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      let raf = 0;
+      const loop = () => {
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        levelRef.current = Math.min(1, Math.sqrt(sum / buf.length) * 5);
+        raf = requestAnimationFrame(loop);
+      };
+      loop();
+      meterRef.current = { stop: () => { cancelAnimationFrame(raf); stream.getTracks().forEach((tr2) => tr2.stop()); ctx.close(); } };
+    } catch { /* no mic access: the waveform just stays flat */ }
+  }, []);
+
   const reset = useCallback(() => {
     queueRef.current = []; stopSpeaking();
     windowRef.current = null; setLine(null); setHeard(null); setPhrase(null);
@@ -298,13 +328,14 @@ export function useNirhast() {
       }
       if (micOffRef.current && recRef.current) { recRef.current.pause(); if (!micBrokenRef.current) setMic('paused'); } // STOP pressed: stay off (e.g. after a language switch)
       else if (!micBrokenRef.current) setMic(recRef.current ? 'listening' : 'typed');
+      if (recRef.current && !micBrokenRef.current) startMeter();
     } catch (err) {
       micBrokenRef.current = true;
       setMic('error');
       setError(tr('errHear', { msg: err?.message || err }));
       setEngine('none');
     }
-  }, [handleCookText, tr]);
+  }, [handleCookText, tr, startMeter]);
 
   // ---------- start the kitchen (needs a tap so the browser allows mic + audio) ----------
   const start = useCallback(async () => {
@@ -314,8 +345,14 @@ export function useNirhast() {
     preloadSounds();
     await startRecognizer();
     if (!ttsAvailable() && !configRef.current.sarvam) setError((e) => e || tr('errNoTts'));
+    const open = stateRef.current.dialog; // a question that came in before Start: ask it now
+    if (open?.prompt) {
+      queueRef.current.push({ text: open.prompt, kind: 'question', orderId: open.orderId });
+      pendingListenRef.current = open.kind === 'confirm' ? 'number' : 'yesno';
+      drainQueue();
+    }
     apply((s) => tick(s, clock()));
-  }, [startRecognizer, apply, clock, tr]);
+  }, [startRecognizer, apply, clock, tr, drainQueue]);
 
   const setLang = useCallback(async (lang) => {
     commit({ ...setLangRule(stateRef.current, safeLang(lang)), langChosen: true });
@@ -395,11 +432,11 @@ export function useNirhast() {
     return () => clearInterval(id);
   }, [apply, clock, commit, runEffects]);
 
-  useEffect(() => () => { recRef.current?.stop(); stopSpeaking(); }, []);
+  useEffect(() => () => { recRef.current?.stop(); meterRef.current?.stop(); stopSpeaking(); }, []);
 
   return {
     state, now, mic, engine, config, line, heard, interim, phrase, error, notice, started, history, forecast,
     start, handleCookText, sendCustomer, press, setSpeaker, ruko, micStop, micListen, micOff: mic === 'paused', reset, setLang, toggleDish, setHour, editDish, addDish, removeDish,
-    listening: Boolean(windowRef.current),
+    listening: Boolean(windowRef.current), levelRef,
   };
 }

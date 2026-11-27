@@ -99,3 +99,10 @@ Everything must stay public and working until 2 Dec. Results 2 Dec; finale 13 De
 5. Optional polish if time allows: voice menu setup, nicer mobile layout, an LLM classifier only when a key is set.
 7. Analytics plan (3 pages: Kitchen, Analytics, Owner; database, forecast, feedback; slot overload dropped for now): `docs/ANALYTICS-PLAN.md`.
 6. Next sprint plan: `docs/NEXT-SPRINT.md` (voice, AI types and languages are built; mic timing and database are open).
+
+## Tabs (28 Nov, late)
+Bottom tabs are **Kitchen · Chat · Insights · Setup** (Insights = the old Analytics page, now also showing the order
+pipeline at the top; Setup = the old Owner page: opening hours, menu rows, customer questions). The language picker is
+only on Kitchen. Charts use lavender (#7058B8 family) and sage/greenish-yellow (#A2AD38 family); no black, brown or ochre.
+
+Top bar (28 Nov, late): no logo or clock. Left: logo + "Nirhast" on Kitchen; a back chevron on the other pages (goes to the previous page). Every other page shows its name next to the chevron. Right: a grey profile circle (opens Setup for now). Bottom tabs stay Kitchen · Chat · Insights · Setup.

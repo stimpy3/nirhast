@@ -4,11 +4,12 @@
 import React, { useMemo } from 'react';
 import { buildAnalytics } from '../core/analytics.js';
 import { WEEKDAYS, clockLabel, itemName } from '../core/i18n.js';
+import { SoftBars, AreaCompare, Heatmap, Donut, Gauge } from './charts.jsx';
 
 const C1 = 'var(--chart-1)';
 const C2 = 'var(--chart-2)';
 
-export default function AnalyticsScreen({ n, t }) {
+export default function AnalyticsScreen({ n, t, TodayCard }) {
   const { state, history, forecast } = n;
   const lang = state.lang;
   const a = useMemo(() => (history.loaded ? buildAnalytics(history, state, n.now) : null), [history, state, n.now]);
@@ -21,42 +22,38 @@ export default function AnalyticsScreen({ n, t }) {
 
   return (
     <div className="screen">
+      {TodayCard && <TodayCard state={state} now={n.now} t={t} />}
       <ForecastDetail f={forecast} t={t} lang={lang} wdName={wdName} dish={dish} shortDay={shortDay} />
 
-      <section className="card">
+      <section className="plain-sec">
         <h2 className="card-title chart-title">{t('chSlots')}</h2>
-        <div className="legend"><span><i style={{ background: C1 }} />{t('lgToday')}</span><span><i style={{ background: C2 }} />{t('lgTypical', { weekday: wdName })}</span></div>
-        <Bars
-          groups={a.slots.map((s) => ({ label: clockLabel(lang, s).replace(/^(सकाळी|दुपारी|संध्याकाळी|रात्री|सुबह|दोपहर|शाम|रात) /, ''), values: [s.today, s.typical] }))}
-          colors={[C1, C2]} names={[t('lgToday'), t('lgTypical', { weekday: wdName })]} unit="thali"
+        <div className="legend"><span><i style={{ background: '#7058B8' }} />{t('lgToday')}</span><span><i className="dashed" />{t('lgTypical', { weekday: wdName })}</span></div>
+        <AreaCompare
+          points={a.slots.map((s) => ({ label: clockLabel(lang, s).replace(/^(सकाळी|दुपारी|संध्याकाळी|रात्री|सुबह|दोपहर|शाम|रात) /, ''), minute: s.minute, today: s.today, usual: s.typical }))}
+          focusIndex={Math.max(0, a.slots.findIndex((s) => s.hour * 60 + s.minute >= new Date(n.now).getHours() * 60 + new Date(n.now).getMinutes()))}
+          labels={[t('lgToday'), t('lgTypical', { weekday: wdName })]} unit="thali"
         />
       </section>
 
-      <section className="card">
+      <section className="plain-sec">
         <h2 className="card-title chart-title">{t('chDays')}</h2>
-        <Bars
-          groups={a.perDay.map((d, i) => ({ label: i % 7 === 6 || d.today ? shortDay(d.day) : '', values: [d.thali], title: shortDay(d.day) }))}
-          colors={[C1]} names={['']} unit="thali" thin
-        />
+        <Heatmap days={a.perDay.map((d) => ({ day: d.day, weekday: d.weekday, value: d.thali, today: d.today, title: shortDay(d.day) }))} weekdayNames={WEEKDAYS[lang]} unit="thali" />
       </section>
 
-      <section className="card">
+      <section className="plain-sec">
         <h2 className="card-title chart-title">{t('chDishes')}</h2>
-        <HBars rows={a.topDishes.map((d) => ({ label: dish(d.itemId), value: d.qty }))} />
+        <Donut slices={a.topDishes.map((d) => ({ label: dish(d.itemId), value: d.qty }))} centerLabel={t('itemsSold')} />
       </section>
 
-      <section className="card">
+      <section className="card sec-card">
         <h2 className="card-title chart-title">{t('chSat')}</h2>
-        <div className="stats" style={{ marginBottom: 14 }}>
-          <div className="stat"><b>{thisWeek.happyPct ?? '—'}{thisWeek.happyPct !== null ? '%' : ''}</b><span>{t('happyPct')}</span></div>
-          <div className="stat"><b>{thisWeek.complaints}</b><span>{t('complaintsWeek')}</span></div>
-          <div className="stat"><b>{thisWeek.per100}</b><span>{t('per100')}</span></div>
+        <div className="sat-row">
+          <div className="gauge-wrap"><Gauge pct={thisWeek.happyPct} label={t('happyPct')} /><span>{t('happyPct')}</span></div>
+          <div className="sat-side">
+            <div className="sat-num"><b>{thisWeek.complaints}</b><span>{t('complaintsWeek')}</span></div>
+            <div className="sat-num"><b>{thisWeek.per100}</b><span>{t('per100')}</span></div>
+          </div>
         </div>
-        <p className="chart-sub">{t('happyByWeek')}</p>
-        <Bars
-          groups={a.weeks.map((w, i) => ({ label: i === 3 ? t('weekThis') : t('weekAgo', { n: 3 - i }), values: [w.happyPct ?? 0], title: `${w.happyPct ?? '—'}%` }))}
-          colors={[C1]} names={['']} unit="%" max={100}
-        />
         {a.complaintTopics.length > 0 && (
           <>
             <p className="chart-sub" style={{ marginTop: 14 }}>{t('chTopics')}</p>
@@ -76,40 +73,36 @@ export default function AnalyticsScreen({ n, t }) {
         )}
       </section>
 
-      <section className="card">
-        <h2 className="card-title chart-title">{t('chSaved')}</h2>
-        <Bars
-          groups={a.saved.map((d, i) => ({ label: i % 7 === 6 || d.today ? shortDay(d.day) : '', values: [d.minutes], title: shortDay(d.day) }))}
-          colors={[C1]} names={['']} unit={t('min')}
-        />
-      </section>
     </div>
   );
 }
 
 function ForecastDetail({ f, t, lang, wdName, dish, shortDay }) {
   if (!f) return null;
-  if (!f.enough) return <section className="card"><h2 className="card-title">{t('fcTitle')}</h2><p className="muted">{t('forecastNoneUi')}</p></section>;
+  if (!f.enough) return <section className="plain-sec"><h2 className="card-title">{t('fcTitle')}</h2><p className="muted">{t('forecastNoneUi')}</p></section>;
   const weightedAvg = Math.round(f.mid / (1 + f.trendPct / 100));
   return (
-    <section className="card forecast-detail">
+    <section className="plain-sec forecast-detail">
+      <div className="card fc-top">
       <h2 className="card-title">{t('fcTitle')}</h2>
       <p className="fc-big"><b>{f.low}–{f.high}</b> {t('fcThali')}</p>
       <p className="chart-sub">{t('fcWhy')}</p>
-      <Bars
-        groups={[...f.sameDays].reverse().map((d) => ({ label: shortDay(d.day), values: [d.thali] })).concat([{ label: t('lgToday'), values: [f.mid], title: `${f.low}–${f.high}`, ghost: true }])}
-        colors={[C1]} names={['']} unit="thali"
-      />
-      <ol className="fc-steps">
-        <li>{t('fcSameDays', { n: f.sameDays.length, weekday: wdName, list: [...f.sameDays].reverse().map((d) => d.thali).join(', ') })}</li>
-        <li>{t('fcWeighted', { n: weightedAvg })}</li>
-        <li>{f.trendPct === 0 ? t('fcFlat') : t(f.trendPct > 0 ? 'fcBusier' : 'fcQuieter', { p: Math.abs(f.trendPct), n: f.mid })}</li>
-      </ol>
-      <div className="chips">
-        {f.perDish.map((d) => <span key={d.itemId} className="tag lav">{d.qty} {dish(d.itemId)}</span>)}
-        {f.binaPyaaz > 0 && <span className="tag lav">{f.binaPyaaz} bina pyaaz</span>}
-        <span className="tag wait">{t('fcBusiest', { t: clockLabel(lang, f.busiest) })}</span>
-        <span className="tag ok">{t('fcSoFar', { n: f.soFar })}</span>
+      <SoftBars items={[...f.sameDays].reverse().map((d) => ({ label: shortDay(d.day), value: d.thali }))
+        .concat([{ label: t('lgToday'), value: f.mid, display: `${f.low}–${f.high}`, highlight: true }])} unit="thali" />
+      </div>
+      <dl className="fc-rows">
+        <div><dt>{t('fcRowWeighted')}</dt><dd>{weightedAvg}</dd></div>
+        <div><dt>{t('fcRowTrend')}</dt><dd>{f.trendPct > 0 ? '+' : ''}{f.trendPct}%</dd></div>
+        <div className="fc-sum"><dt>{t('fcRowRange')}</dt><dd>{f.low}–{f.high}</dd></div>
+      </dl>
+      <p className="fc-label">{t('fcPrepTitle')}</p>
+      <p className="fc-prep">
+        {f.perDish.map((d) => <span key={d.itemId}><b>{d.qty}</b> {dish(d.itemId)}</span>)}
+        {f.binaPyaaz > 0 && <span><b>{f.binaPyaaz}</b> bina pyaaz</span>}
+      </p>
+      <div className="fc-stats">
+        <div><span>{t('fcBusiestLbl')}</span><b>{clockLabel(lang, f.busiest)}</b></div>
+        <div><span>{t('fcSoFarLbl')}</span><b>{f.soFar}</b></div>
       </div>
     </section>
   );

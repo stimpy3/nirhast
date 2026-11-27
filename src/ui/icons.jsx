@@ -31,6 +31,8 @@ export const SendIcon = make(<><path d="m3 3 3 9-3 9 19-9Z" /><path d="M6 12h16"
 export const CheckIcon = make(<path d="M20 6 9 17l-5-5" />);
 export const XIcon = make(<path d="M18 6 6 18M6 6l12 12" />);
 export const ChartIcon = make(<><path d="M3 3v18h18" /><path d="M7 16v-4" /><path d="M12 16V8" /><path d="M17 16v-6" /></>);
+export const PauseIcon = make(<><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /></>);
+export const BoltIcon = make(<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />);
 export const PlusIcon = make(<path d="M12 5v14M5 12h14" />);
 export const CheckCircleIcon = make(<><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></>);
 export const DoubleCheckIcon = make(<><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></>);
@@ -41,4 +43,5 @@ export const HistoryIcon = make(<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6
 export const UsersIcon = make(<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>);
 export const QuestionIcon = make(<><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></>);
 export const MoreIcon = make(<><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></>);
+export const ChevronLeftIcon = make(<path d="m15 18-6-6 6-6" />);
 export const ArrowLeftIcon = make(<><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>);
